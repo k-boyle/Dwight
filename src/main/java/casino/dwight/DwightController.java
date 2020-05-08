@@ -1,7 +1,7 @@
 package casino.dwight;
 
 import casino.dwight.coc.CoClient;
-import casino.dwight.commands.PlayerSearchCommand;
+import casino.dwight.commands.ClashAPICommands;
 import casino.dwight.config.ConfigFactory;
 import casino.dwight.config.DwightConfig;
 import de.btobastian.sdcf4j.handler.JavacordHandler;
@@ -32,6 +32,6 @@ public class DwightController {
 
         var cocClient = new CoClient(config.getString(DwightConfig.CoC.TOKEN));
         var commandHandler = new JavacordHandler(dwight);
-        commandHandler.registerCommand(new PlayerSearchCommand(cocClient));
+        commandHandler.registerCommand(new ClashAPICommands(cocClient));
     }
 }

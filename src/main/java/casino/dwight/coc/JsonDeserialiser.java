@@ -21,7 +21,7 @@ public class JsonDeserialiser {
         try {
             return converter.fromJson(json);
         } catch (IOException e) {
-            return null;
+            throw new SerialisationException("Failed to deserialise " + clazz.getName(), e);
         }
     }
 
