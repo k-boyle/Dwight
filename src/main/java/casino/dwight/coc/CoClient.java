@@ -5,6 +5,8 @@ import casino.dwight.coc.entities.Member;
 import casino.dwight.coc.entities.PagedEntity;
 import casino.dwight.coc.entities.Player;
 import casino.dwight.coc.entities.WarLog;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -16,6 +18,8 @@ import java.util.function.Function;
 public class CoClient {
     private static final String BASE_URL = "https://api.clashofclans.com/v1";
     private static final String AUTHORIZATION_HEADER_KEY = "Authorization";
+
+    private final Logger logger = LogManager.getLogger(getClass());
 
     private final HttpClient client;
     private final JsonDeserialiser deserialiser;
@@ -49,6 +53,7 @@ public class CoClient {
     }
 
     private <T> CompletableFuture<T> getAsync(String endpoint, Function<HttpResponse<String>, T> function) {
+        logger.info("Sending GET to {}", endpoint);
         return client.sendAsync(baseRequest.uri(URI.create(BASE_URL + endpoint)).build(), HttpResponse.BodyHandlers.ofString())
             .thenApplyAsync(function);
     }
