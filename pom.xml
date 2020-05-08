@@ -15,7 +15,7 @@
         <javacord.version>3.0.6-SNAPSHOT</javacord.version>
         <sdcf4j.version>1.0.10</sdcf4j.version>
         <log4j.version>2.13.2</log4j.version>
-        <jackson.fasterxml.version>2.9.8</jackson.fasterxml.version>
+        <jackson.fasterxml.version>2.11.0</jackson.fasterxml.version>
         <ocava.version>master-fbb4ca9280-1</ocava.version>
     </properties>
 
