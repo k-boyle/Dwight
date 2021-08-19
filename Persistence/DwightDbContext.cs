@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using ClashWrapper.Entities.ClanMembers;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace Dwight
 {
@@ -21,6 +23,8 @@ namespace Dwight
             {
                 entity.HasIndex(member => member.DiscordId);
                 entity.HasKey(member => new { member.GuildId, member.DiscordId });
+                entity.Property(member => member.Role)
+                    .HasConversion(new EnumToNumberConverter<ClanRole, int>());
                 entity.ToTable("clan_members");
             });
 

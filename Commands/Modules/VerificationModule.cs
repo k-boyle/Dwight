@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Threading.Tasks;
 using ClashWrapper;
+using ClashWrapper.Entities.ClanMembers;
 using Disqord;
 using Disqord.Bot;
 using Disqord.Gateway;
@@ -32,8 +33,14 @@ namespace Dwight
             
             var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
 
-            if (settings.Members.Any(clanMember => clanMember.DiscordId == member.Id))
-                return Reply($"{member} is already verified");
+            foreach (var guildMember in settings.Members)
+            {
+                if (guildMember.DiscordId == member.Id)
+                    return Reply($"{member} is already verified");
+
+                if (guildMember.Tags.Contains(userTag, StringComparer.CurrentCultureIgnoreCase))
+                    return Reply($"Identity theft is not a joke, {Context.Author.Mention}");
+            }
 
             if (settings.ClanTag == null)
                 return Reply("Clan tag has not been configured for this clan");
@@ -45,7 +52,8 @@ namespace Dwight
             if (clanMember == null)
                 return Reply($"{userTag} is not a member of the clan");
 
-            var newMember = new ClashMember(Context.GuildId, member.Id, new[] { userTag }, 0);
+            var newMember = new ClashMember(Context.GuildId, member.Id, new[] { userTag }, 0, clanMember.Role);
+
             settings.Members.Add(newMember);
 
             _dbContext.Update(settings);
@@ -60,7 +68,17 @@ namespace Dwight
                 await member.GrantRoleAsync(vrole.Id);
 
             if (Context.Guild.GetChannel(settings.GeneralChannelId) is ITextChannel channel)
-                await channel.SendMessageAsync(new() { Content = $"{member.Mention} welcome to {Context.Guild}!" });
+                await channel.SendMessageAsync(new() { Content = $"{member.Mention} welcome to {Context.Guild}. You better learn the rules. If you don't, you'll be eaten in your sleep" });
+
+            var roleId = clanMember.Role switch
+            {
+                ClanRole.CoLeader => settings.CoLeaderRoleId,
+                ClanRole.Elder => settings.ElderRoleId,
+                _ => 0UL
+            };
+
+            if (Context.Guild.Roles.TryGetValue(roleId, out _))
+                await member.GrantRoleAsync(roleId);
 
             return Reply("Member has been verified");
         }
@@ -96,7 +114,7 @@ namespace Dwight
 
             var alreadyTaken = await _dbContext.Members.FirstOrDefaultAsync(member => member.Tags.Contains(tag));
             if (alreadyTaken != null)
-                return Reply($"{tag} already belongs to {(Context.Guild.Members.TryGetValue(alreadyTaken.DiscordId, out member) ? member : "{not in cache}")}");
+                return Reply($"Identity theft is not a joke, {Context.Author.Mention}");
 
             var clanMember = await _dbContext.Members.FindAsync(Context.GuildId.RawValue, member.Id.RawValue);
             if (clanMember == null)

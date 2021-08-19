@@ -32,7 +32,7 @@ namespace Dwight
                 {
                     bot.Token = context.Configuration["Discord:Token"];
                     bot.UseMentionPrefix = true;
-                    bot.Prefixes = new[] { "dwight", "dwight,", "d" };
+                    bot.Prefixes = context.Configuration.GetSection("Discord:Prefixes").Get<string[]>();
                     bot.Intents = GatewayIntents.Recommended + GatewayIntent.Presences;
                 })
                 .ConfigureServices((context, collection) =>

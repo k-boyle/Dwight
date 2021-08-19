@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 
 namespace Dwight
 {
-    public class ScheduledTask : IScheduledTask
+    public class ScheduledTask<T> : IScheduledTask
     {
         private static int _taskCounter;
 
@@ -14,16 +14,16 @@ namespace Dwight
 
         private readonly TaskCompletionSource<bool> _taskCompletionSource;
 
-        public ScheduledTask(DateTimeOffset executeAt, Func<Task> callback)
-            : this(null, executeAt, callback)
+        public ScheduledTask(DateTimeOffset executeAt, T state, Func<T, Task> callback)
+            : this(null, executeAt, state, callback)
         {
         }
 
-        public ScheduledTask(string name, DateTimeOffset executeAt,Func<Task> callback)
+        public ScheduledTask(string? name, DateTimeOffset executeAt, T state, Func<T, Task> callback)
         {
             Name = name ?? string.Concat("Task: ", _taskCounter++.ToString());
             ExecuteAt = executeAt;
-            Callback = callback;
+            Callback = () => callback(state);
             IsCancelled = false;
             this._taskCompletionSource = new();
         }
@@ -43,7 +43,7 @@ namespace Dwight
             this._taskCompletionSource.SetResult(true);
         }
 
-        public int CompareTo(IScheduledTask other)
+        public int CompareTo(IScheduledTask? other)
         {
             return ExecuteAt.CompareTo(other!.ExecuteAt);
         }

@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 using Disqord.Bot.Hosting;
 using Disqord.Gateway;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,6 +9,28 @@ namespace Dwight.Services
 {
     public class PurgingService : DiscordBotService
     {
+        // todo periodic purging?
+        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+        {
+            await Bot.WaitUntilReadyAsync(stoppingToken);
+
+            await using var scope = Bot.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetDwightDbContext();
+
+            Logger.LogInformation("Purging guilds");
+            var guilds = Bot.GetGuilds();
+            // var notIn = await context.GuildSettings.Where(settings => !guilds.ContainsKey(settings.GuildId))
+            //     .ToListAsync(stoppingToken);
+            //
+            // Logger.LogInformation("Found {Count} guilds to purge", notIn.Count);
+            //
+            // if (notIn.Count == 0)
+            //     return;
+            //
+            // context.GuildSettings.RemoveRange(notIn);
+            // await context.SaveChangesAsync(stoppingToken);
+        }
+
         protected override async ValueTask OnLeftGuild(LeftGuildEventArgs e)
         {
             Logger.LogInformation("Left guild {Guild}, removing from database", e.Guild.Name);

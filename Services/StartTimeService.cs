@@ -24,57 +24,20 @@ namespace Dwight.Services
         private static readonly TimeSpan TWENTY_FIVE_HOURS = TimeSpan.FromHours(25);
 
         private readonly ClashClient _clashClient;
-        private readonly EspeonScheduler _espeonScheduler;
+        private readonly EspeonScheduler _scheduler;
         private readonly HttpClient _httpClient;
         private readonly PollingConfiguration _pollingConfiguration;
         private readonly Dictionary<ulong, string> _lastEventIdByGuildId;
         private readonly Dictionary<ulong, ulong> _startTimeMessageIdByGuildId;
 
-        public StartTimeService(ClashClient clashClient, EspeonScheduler espeonScheduler, HttpClient httpClient, IOptions<PollingConfiguration> pollingConfiguration)
+        public StartTimeService(ClashClient clashClient, EspeonScheduler scheduler, HttpClient httpClient, IOptions<PollingConfiguration> pollingConfiguration)
         {
             _clashClient = clashClient;
-            _espeonScheduler = espeonScheduler;
+            _scheduler = scheduler;
             _httpClient = httpClient;
             _pollingConfiguration = pollingConfiguration.Value;
             _lastEventIdByGuildId = new();
             _startTimeMessageIdByGuildId = new();
-        }
-
-        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
-        {
-            if (!_pollingConfiguration.StartTimeEnabled)
-                return;
-
-            async Task ExecuteStartTimeRemindersAsync(CancellationToken cancellationToken)
-            {
-                await using var scope = Bot.Services.CreateAsyncScope();
-                var context = scope.ServiceProvider.GetDwightDbContext();
-
-                var save = false;
-                await foreach (var settings in context.GuildSettings.AsAsyncEnumerable().WithCancellation(cancellationToken))
-                    save |= await StartTimeReminderAsync(context, settings, cancellationToken);
-
-                if (save)
-                    await context.SaveChangesAsync(cancellationToken);
-            }
-
-            while (true)
-            {
-                try
-                {
-                    await ExecuteStartTimeRemindersAsync(cancellationToken);
-                    await Task.Delay(_pollingConfiguration.StartTimePollingDuration, cancellationToken);
-                }
-                catch (TaskCanceledException)
-                {
-                    Logger.LogInformation("Shutting down start time service...");
-                    break;
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError(ex, "An exception was thrown");
-                }
-            }
         }
 
         protected override async ValueTask OnReactionAdded(ReactionAddedEventArgs e)
@@ -98,10 +61,50 @@ namespace Dwight.Services
                 return;
 
             var channel = (IMessageChannel) Bot.GetChannel(guildId, e.ChannelId);
-            await channel.SendMessageAsync(new(){ Content = $"{Mention.User(e.UserId)} {possibility} start war" });
+            var embed = new LocalEmbed
+            {
+                Description = $"{Mention.User(e.UserId)} {possibility} start war",
+                Color = 0x10c1f7
+            };
+            await channel.SendMessageAsync(new(){ Embeds = new List<LocalEmbed> { embed }, AllowedMentions = LocalAllowedMentions.None });
         }
 
-        private async Task<bool> StartTimeReminderAsync(DwightDbContext context, GuildSettings settings, CancellationToken cancellationToken)
+        protected override async Task ExecuteAsync(CancellationToken cancellationToken)
+        {
+            if (!_pollingConfiguration.StartTimeEnabled)
+                return;
+
+            await Bot.WaitUntilReadyAsync(cancellationToken);
+
+            _scheduler.DoNow(cancellationToken, CheckForStartTimesAsync);
+        }
+
+        private async Task CheckForStartTimesAsync(CancellationToken cancellationToken)
+        {
+            await using var scope = Bot.Services.CreateAsyncScope();
+            var context = scope.ServiceProvider.GetDwightDbContext();
+
+            try
+            {
+                var allSettings = await context.GuildSettings.ToListAsync(cancellationToken);
+                foreach (var settings in allSettings)
+                {
+                    await StartTimeReminderAsync(context, settings, cancellationToken);
+                }
+            }
+            catch (TaskCanceledException)
+            {
+                Logger.LogInformation("Shutting down start time service...");
+                return;
+            }
+
+            _scheduler.DoIn(_pollingConfiguration.StartTimePollingDuration, cancellationToken, CheckForStartTimesAsync);
+        }
+
+        // todo drying running?
+        // todo throw the last event in the db?
+        // todo proper resuming
+        private async Task StartTimeReminderAsync(DwightDbContext context, GuildSettings settings, CancellationToken cancellationToken)
         {
             var guildId = settings.GuildId;
             Logger.LogInformation("Looking for start times for {GuildId}", guildId);
@@ -109,20 +112,18 @@ namespace Dwight.Services
             if (Bot.GetChannel(guildId, settings.StartTimeChannelId) is not CachedTextChannel channel)
             {
                 Logger.LogInformation("{GuildId} has not setup their start time channel", guildId);
-                return false;
+                return;
             }
 
             var calendarLink = settings.CalendarLink;
             if (string.IsNullOrWhiteSpace(calendarLink))
-                return false;
+                return;
 
             var calendarUri = GetUri(calendarLink);
             if (calendarUri == null)
             {
-                settings.CalendarLink = null;
                 Logger.LogError("{Guild} provided a malformed calendar link {CalendarLink}", guildId, calendarLink);
-
-                return true;
+                return;
             }
 
             var ical = await _httpClient.GetAsync(calendarUri, cancellationToken);
@@ -131,14 +132,20 @@ namespace Dwight.Services
                 .FirstOrDefault();
 
             if (nextEvent == null)
-                return false;
+                return;
 
             var nextEventUid = nextEvent.Uid;
             if (_lastEventIdByGuildId.TryGetValue(guildId, out var lastEvent) && nextEventUid == lastEvent)
             {
                 Logger.LogInformation("No new event for {GuildId}", guildId);
-                return false;
+                return;
             }
+
+            // if (DateTimeOffset.UtcNow - nextEvent.Created.AsDateTimeOffset > _pollingConfiguration.StartTimePollingDuration * 1.5f)
+            // {
+            //     Logger.LogInformation("Found new start times for {GuildId} but they exceeded the acceptable threshold", guildId);
+            //     return;
+            // }
 
             _lastEventIdByGuildId[guildId] = nextEventUid;
 
@@ -148,7 +155,7 @@ namespace Dwight.Services
             if (end < DateTimeOffset.UtcNow)
             {
                 await channel.SendMessageAsync(new() { Content = "I found start times but they appear to be in the past..." });
-                return false;
+                return;
             }
 
             if (end - start != TWO_HOURS)
@@ -157,19 +164,22 @@ namespace Dwight.Services
             if (start - DateTimeOffset.UtcNow > TWENTY_FIVE_HOURS)
                 await channel.SendMessageAsync(new() { Content = "The search window is oddly far into the future, something is afoot" });
 
-            var reps = context.FwaReps.Where(rep => rep.DiscordId == guildId);
+            var reps = context.FwaReps.Where(rep => rep.GuildId == guildId);
             var timesByRepId = await reps.ToDictionaryAsync(
                 rep => rep.DiscordId, 
                 rep => (GetTime(start, rep.TimeZone), GetTime(end, rep.TimeZone)),
                 cancellationToken
             );
 
+            Logger.LogInformation("Got {Count} reps", timesByRepId.Count);
+
+            if (timesByRepId.Count == 0)
+                return;
+
             var timesEmbed = CreateTimesEmbed(timesByRepId);
             await SendStartTimesMessageAsync(channel, timesEmbed, guildId);
 
             ScheduleStartTimeReminders(settings, start, channel);
-
-            return false;
         }
 
         private void ScheduleStartTimeReminders(GuildSettings settings, DateTimeOffset start, CachedTextChannel channel)
@@ -178,14 +188,14 @@ namespace Dwight.Services
             var tenMinutesBeforeStart = start.AddMinutes(-10);
 
             // todo on cancel
-            _espeonScheduler.DoAt(oneHourBeforeStart, channel, channel => channel.SendMessageAsync(new() { Content = $"{Mention.Everyone} search is in 1 hour!" }));
-            _espeonScheduler.DoAt(tenMinutesBeforeStart, channel, channel => channel.SendMessageAsync(new() { Content = $"{Mention.Everyone} search is in 10 minutes!" }));
-            _espeonScheduler.DoAt(start, (channel, _clashClient, settings.ClanTag), async state =>
+            _scheduler.DoAt(oneHourBeforeStart, channel, channel => channel.SendMessageAsync(new() { Content = $"{Mention.Everyone} search is in 1 hour!" }));
+            _scheduler.DoAt(tenMinutesBeforeStart, channel, async channel =>
             {
-                var (channel, client, clanTag) = state;
-                var builder = new StringBuilder($"{Markdown.Bold(Markdown.Underline("Members Ordered By Donations"))}");
+                var builder = new StringBuilder("Search is in 10 minutes!\n")
+                    .Append(Markdown.Bold(Markdown.Underline("Members Ordered By Donations")))
+                    .Append('\n');
 
-                var clanMembers = await client.GetClanMembersAsync(clanTag);
+                var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag);
                 var clanMemberDonationsFormatted = clanMembers.OrderByDescending(x => x.Donations)
                     .Select((member, index) => $"{index + 1}: {Markdown.Escape(member.Name)} - {Markdown.Bold(member.Donations)}");
 
@@ -193,11 +203,12 @@ namespace Dwight.Services
 
                 await channel.SendMessageAsync(new() { Content = builder.ToString() });
             });
+            _scheduler.DoAt(start, () => channel.SendMessageAsync(new() { Content = $"{Mention.Everyone} search has started!" }));
         }
 
         private async Task SendStartTimesMessageAsync(CachedTextChannel channel, LocalEmbed timesEmbed, ulong guildId)
         {
-            var message = await channel.SendMessageAsync(new() { Embeds = new List<LocalEmbed> { timesEmbed } });
+            var message = await channel.SendMessageAsync(new() { Content = Mention.Everyone, Embeds = new List<LocalEmbed> { timesEmbed } });
             await message.AddReactionAsync(LocalEmoji.Unicode("✅"));
             await message.AddReactionAsync(LocalEmoji.Unicode("⚠"));
             await message.AddReactionAsync(LocalEmoji.Unicode("❌"));
@@ -223,7 +234,7 @@ namespace Dwight.Services
             => new LocalEmbed
                 {
                     Title = "Sync Times Posted!",
-                    Color = new Color(0x10c1f7),
+                    Color = 0x10c1f7,
                     Timestamp = DateTimeOffset.UtcNow
                 }
                 .AddField("Sync Times!", FormatTimes(timesByRepId))
@@ -236,6 +247,6 @@ namespace Dwight.Services
         }
 
         private string FormatStartTimeForRep(ulong id, (DateTimeOffset Start, DateTimeOffset End) times)
-            => $"{Bot.GetUser(id)?.Mention} : **Start**, {times.Start:dddd, dd MMMM yyyy HH:mm tt} - **End**, {times.End:dddd, dd MMMM yyyy HH:mm tt}";
+            => $"{Bot.GetUser(id)?.Mention} : **Start**, {times.Start:dddd, dd MMMM yyyy hh:mm tt} - **End**, {times.End:dddd, dd MMMM yyyy hh:mm tt}";
     }
 }
