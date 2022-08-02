@@ -1,4 +1,9 @@
-﻿using ClashWrapper.Entities;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using ClashWrapper.Entities;
 using ClashWrapper.Entities.ClanMembers;
 using ClashWrapper.Entities.Player;
 using ClashWrapper.Entities.War;
@@ -7,131 +12,131 @@ using ClashWrapper.Models.ClanMembers;
 using ClashWrapper.Models.Player;
 using ClashWrapper.Models.War;
 using ClashWrapper.Models.WarLog;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
-namespace ClashWrapper
+namespace ClashWrapper;
+
+public class ClashClient
 {
-    public class ClashClient
+    private readonly ILogger<ClashClient> _logger;
+    private readonly RequestClient _request;
+
+    public ClashClient(ClashClientConfig config, ILogger<ClashClient> logger)
     {
-        private readonly RequestClient _request;
+        _request = new(this, config);
+        _logger = logger;
+    }
 
-        public ClashClient(ClashClientConfig config)
+    public event Func<ErrorMessage, Task> Error;
+
+    internal void InternalErrorReceived(ErrorMessage message)
+    {
+        _logger.LogError("Received error {Message}: {Reason}", message.Message, message.Reason);
+    }
+
+    public event Func<string, Task> Log;
+
+    internal void Exception(Exception exception)
+    {
+        _logger.LogError("Exception thrown\n{Exception}", exception);
+    }
+
+    public async Task<CurrentWar> GetCurrentWarAsync(string clanTag)
+    {
+        if (string.IsNullOrWhiteSpace(clanTag))
+            throw new ArgumentNullException(clanTag);
+
+        clanTag = clanTag[0] == '#' ? clanTag.Replace("#", "%23") : clanTag;
+
+        var model = await _request.SendAsync<CurrentWarModel>($"/v1/clans/{clanTag}/currentwar")
+            .ConfigureAwait(false);
+
+        return model is null ? null : new CurrentWar(model);
+    }
+
+    public async Task<PagedEntity<IReadOnlyCollection<WarLog>>> GetWarLogAsync(
+        string clanTag,
+        int? limit = null,
+        string before = null,
+        string after = null)
+    {
+        if (string.IsNullOrWhiteSpace(clanTag))
+            throw new ArgumentNullException(clanTag);
+
+        if (limit < 0)
+            throw new ArgumentOutOfRangeException(nameof(limit));
+
+        clanTag = clanTag[0] == '#' ? clanTag.Replace("#", "%23") : clanTag;
+
+        var sb = new StringBuilder();
+        sb.Append($"/v1/clans/{clanTag}/warlog?");
+
+        if (limit.HasValue)
+            sb.Append($"limit={limit.Value}&");
+
+        if (!string.IsNullOrWhiteSpace(before))
+            sb.Append($"before={before}&");
+
+        if (!string.IsNullOrWhiteSpace(after))
+            sb.Append($"after={after}&");
+
+        var model = await _request.SendAsync<PagedWarlogModel>(sb.ToString()).ConfigureAwait(false);
+
+        if (model is null)
         {
-            _request = new RequestClient(this, config);
-        }
+            var empty = ReadOnlyCollection<WarLog>.EmptyCollection();
 
-        public event Func<ErrorMessage, Task> Error;
-
-        internal Task InternalErrorReceivedAsync(ErrorMessage message)
-        {
-            return Error is null ? Task.CompletedTask : Error(message);
-        }
-
-        public event Func<string, Task> Log;
-
-        internal Task InternalLogReceivedAsync(string message)
-        {
-            return Log is null ? Task.CompletedTask : Log(message);
-        }
-
-        public async Task<CurrentWar> GetCurrentWarAsync(string clanTag)
-        {
-            if(string.IsNullOrWhiteSpace(clanTag))
-                throw new ArgumentNullException(clanTag);
-
-            clanTag = clanTag[0] == '#' ? clanTag.Replace("#", "%23") : clanTag;
-
-            var model = await _request.SendAsync<CurrentWarModel>($"/v1/clans/{clanTag}/currentwar")
-                .ConfigureAwait(false);
-
-            return model is null ? null : new CurrentWar(model);
-        }
-
-        public async Task<PagedEntity<IReadOnlyCollection<WarLog>>> GetWarLogAsync(string clanTag, int? limit = null,
-            string before = null, string after = null)
-        {
-            if (string.IsNullOrWhiteSpace(clanTag))
-                throw new ArgumentNullException(clanTag);
-
-            if(limit < 0)
-                throw new ArgumentOutOfRangeException(nameof(limit));
-
-            clanTag = clanTag[0] == '#' ? clanTag.Replace("#", "%23") : clanTag;
-
-            var sb = new StringBuilder();
-            sb.Append($"/v1/clans/{clanTag}/warlog?");
-
-            if (limit.HasValue)
-                sb.Append($"limit={limit.Value}&");
-
-            if (!string.IsNullOrWhiteSpace(before))
-                sb.Append($"before={before}&");
-
-            if (!string.IsNullOrWhiteSpace(after))
-                sb.Append($"after={after}&");
-
-            var model = await _request.SendAsync<PagedWarlogModel>(sb.ToString()).ConfigureAwait(false);
-
-            if (model is null)
+            return new()
             {
-                var empty = ReadOnlyCollection<WarLog>.EmptyCollection();
-
-                return new PagedEntity<IReadOnlyCollection<WarLog>>
-                {
-                    Entity = empty
-                };
-            }
-
-            var collection = new ReadOnlyCollection<WarLog>(model.WarLogs.Select(x => new WarLog(x)),
-                () => model.WarLogs.First().TeamSize);
-
-            var paged = new PagedEntity<IReadOnlyCollection<WarLog>>
-            {
-                After = model.Paging.Cursors.After,
-                Before = model.Paging.Cursors.Before,
-                Entity = collection
+                Entity = empty
             };
-
-            return paged;
         }
 
-        public async Task<IReadOnlyCollection<ClanMember>> GetClanMembersAsync(string clanTag)
+        var collection = new ReadOnlyCollection<WarLog>(model.WarLogs.Select(x => new WarLog(x)),
+            () => model.WarLogs.First().TeamSize);
+
+        var paged = new PagedEntity<IReadOnlyCollection<WarLog>>
         {
-            if (string.IsNullOrWhiteSpace(clanTag))
-                throw new ArgumentNullException(clanTag);
+            After = model.Paging.Cursors.After,
+            Before = model.Paging.Cursors.Before,
+            Entity = collection
+        };
 
-            clanTag = clanTag[0] == '#' ? clanTag.Replace("#", "%23") : clanTag;
+        return paged;
+    }
 
-            var model = await _request.SendAsync<PagedClanMembersModel>($"/v1/clans/{clanTag}/members")
-                .ConfigureAwait(false);
+    public async Task<IReadOnlyCollection<ClanMember>> GetClanMembersAsync(string clanTag)
+    {
+        if (string.IsNullOrWhiteSpace(clanTag))
+            throw new ArgumentNullException(clanTag);
 
-            if (model is null)
-                return ReadOnlyCollection<ClanMember>.EmptyCollection();
+        clanTag = clanTag[0] == '#' ? clanTag.Replace("#", "%23") : clanTag;
 
-            var collection = new ReadOnlyCollection<ClanMember>(model.ClanMembers.Select(x => new ClanMember(x)),
-                () => model.ClanMembers.Length);
+        var model = await _request.SendAsync<PagedClanMembersModel>($"/v1/clans/{clanTag}/members")
+            .ConfigureAwait(false);
 
-            return collection;
-        }
+        if (model is null)
+            return ReadOnlyCollection<ClanMember>.EmptyCollection();
 
-        public async Task<Player> GetPlayerAsync(string playerTag)
-        {
-            if (string.IsNullOrWhiteSpace(playerTag))
-                throw new ArgumentNullException(playerTag);
+        var collection = new ReadOnlyCollection<ClanMember>(model.ClanMembers.Select(x => new ClanMember(x)),
+            () => model.ClanMembers.Length);
 
-            playerTag = playerTag[0] == '#' ? playerTag.Replace("#", "%23") : playerTag;
+        return collection;
+    }
 
-            var model = await _request.SendAsync<PlayerModel>($"/v1/players/{playerTag}")
-                .ConfigureAwait(false);
+    public async Task<Player> GetPlayerAsync(string playerTag)
+    {
+        if (string.IsNullOrWhiteSpace(playerTag))
+            throw new ArgumentNullException(playerTag);
 
-            if (model is null)
-                return null;
+        playerTag = playerTag[0] == '#' ? playerTag.Replace("#", "%23") : playerTag;
 
-            return new Player(model);
-        }
+        var model = await _request.SendAsync<PlayerModel>($"/v1/players/{playerTag}")
+            .ConfigureAwait(false);
+
+        if (model is null)
+            return null;
+
+        return new(model);
     }
 }

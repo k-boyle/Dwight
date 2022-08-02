@@ -1,7 +1,6 @@
-﻿namespace ClashWrapper.RequestParameters
+﻿namespace ClashWrapper.RequestParameters;
+
+public abstract class BaseParameters
 {
-    public abstract class BaseParameters
-    {
-        public abstract string BuildContent();
-    }
+    public abstract string BuildContent();
 }

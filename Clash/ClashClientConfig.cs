@@ -1,7 +1,7 @@
-﻿namespace ClashWrapper
+﻿namespace ClashWrapper;
+
+public class ClashClientConfig
 {
-    public class ClashClientConfig
-    {
-        public string Token { get; set; }
-    }
+    public string Email { get; set; }
+    public string Password { get; set; }
 }

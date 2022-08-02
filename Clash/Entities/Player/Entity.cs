@@ -1,18 +1,17 @@
 ﻿using ClashWrapper.Models.Player;
 
-namespace ClashWrapper.Entities.Player
+namespace ClashWrapper.Entities.Player;
+
+public sealed class Entity
 {
-    public sealed class Entity
+    private readonly HeroModel _model;
+
+    public string Name => _model.Name;
+    public int Level => _model.Level;
+    public string Village => _model.Village;
+
+    internal Entity(HeroModel model)
     {
-        private readonly HeroModel _model;
-
-        public string Name => _model.Name;
-        public int Level => _model.Level;
-        public string Village => _model.Village;
-
-        internal Entity(HeroModel model)
-        {
-            _model = model;
-        }
+        _model = model;
     }
 }

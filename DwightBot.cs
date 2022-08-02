@@ -1,30 +1,50 @@
 ﻿using System;
+using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot;
+using Disqord.Bot.Commands;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Qmmands;
 
-namespace Dwight
+namespace Dwight;
+
+public class DwightBot : DiscordBot
 {
-    public class DwightBot : DiscordBot
+    public DwightBot(IOptions<DiscordBotConfiguration> options, ILogger<DwightBot> logger, IServiceProvider services, DiscordClient client, EspeonScheduler scheduler)
+        : base(options, logger, services, client)
     {
-        public DwightBot(IOptions<DiscordBotConfiguration> options, ILogger<DwightBot> logger, IServiceProvider services, DiscordClient client, EspeonScheduler scheduler)
-            : base(options, logger, services, client)
-        {
-            scheduler.OnError += OnSchedulerError;
-        }
+        scheduler.OnError += OnSchedulerError;
+    }
 
-        private void OnSchedulerError(Exception ex)
-        {
-            Logger.LogError(ex, "An unhandled exception occurred in the scheduler");
-        }
+    private void OnSchedulerError(Exception ex)
+    {
+        Logger.LogError(ex, "An unhandled exception occurred in the scheduler");
+    }
 
-        protected override LocalMessage FormatFailureMessage(DiscordCommandContext context, FailedResult result)
-        {
-            var message = base.FormatFailureMessage(context, result);
-            message.Embeds[0].ImageUrl = "https://cdn.discordapp.com/attachments/376093944385241102/875461673413144586/200.png";
-            return message;
-        }
+    protected override ValueTask<IResult> OnBeforeExecuted(IDiscordCommandContext context)
+    {
+        var command = context.Command!;
+        var module = command.Module;
+        var logger = (ILogger) Services.GetRequiredService(typeof(ILogger<>).MakeGenericType(module.TypeInfo!));
+
+        logger.LogInformation("Executing {Module}#{Command}", module.Name, command.Name);
+
+        return base.OnBeforeExecuted(context);
+    }
+
+    protected override ValueTask<bool> OnAfterExecuted(IDiscordCommandContext context, IResult result)
+    {
+        if (result is CommandNotFoundResult)
+            return base.OnAfterExecuted(context, result);
+
+        var command = context.Command!;
+        var module = command.Module;
+        var logger = (ILogger) Services.GetRequiredService(typeof(ILogger<>).MakeGenericType(module.TypeInfo!));
+
+        logger.LogInformation("Executed {Module}#{Command} with result {Result}", module.Name, command.Name, result.FailureReason);
+
+        return base.OnAfterExecuted(context, result);
     }
 }

@@ -1,16 +1,15 @@
 ﻿using Newtonsoft.Json;
 
-namespace ClashWrapper.Models
+namespace ClashWrapper.Models;
+
+internal class IconUrls
 {
-    internal class IconUrls
-    {
-        [JsonProperty("small")]
-        public string Small { get; set; }
+    [JsonProperty("small")]
+    public string Small { get; set; }
 
-        [JsonProperty("tiny")]
-        public string Tiny { get; set; }
+    [JsonProperty("tiny")]
+    public string Tiny { get; set; }
 
-        [JsonProperty("medium")]
-        public string Medium { get; set; }
-    }
+    [JsonProperty("medium")]
+    public string Medium { get; set; }
 }

@@ -1,19 +1,12 @@
-﻿using Disqord.Bot;
+﻿using Disqord.Bot.Commands.Application;
 using Qmmands;
 
-namespace Dwight
+namespace Dwight;
+
+public class TestModule : DiscordApplicationModuleBase
 {
-    public class TestModule : DiscordGuildModuleBase
-    {
-        private readonly DwightDbContext _dbContext;
-
-        public TestModule(DwightDbContext dbContext)
-        {
-            _dbContext = dbContext;
-        }
-
-        [Command("ping")]
-        public CommandResult Ping()
-            => Reply("pong");
-    }
+    [SlashCommand("ping")]
+    [Description("🏓")]
+    public IResult Ping()
+        => Response("pong");
 }

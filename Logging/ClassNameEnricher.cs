@@ -3,55 +3,54 @@ using System.Linq;
 using Serilog.Core;
 using Serilog.Events;
 
-namespace Dwight
+namespace Dwight;
+
+public class ClassNameEnricher : ILogEventEnricher
 {
-    public class ClassNameEnricher : ILogEventEnricher
+    private const int PADDING = 30;
+
+    private readonly ConcurrentDictionary<string, LogEventProperty> _propertyByClassName;
+
+    public ClassNameEnricher()
     {
-        private const int PADDING = 30;
+        _propertyByClassName = new();
+    }
 
-        private readonly ConcurrentDictionary<string, LogEventProperty> _propertyByClassName;
+    public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
+    {
+        var sourceContext = (string) ((ScalarValue) logEvent.Properties["SourceContext"]).Value;
+        var property = this._propertyByClassName.GetOrAdd(sourceContext, CreateFormattedLogEvent);
 
-        public ClassNameEnricher()
-        {
-            _propertyByClassName = new();
-        }
+        logEvent.AddOrUpdateProperty(property);
+    }
 
-        public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
-        {
-            var sourceContext = (string) ((ScalarValue) logEvent.Properties["SourceContext"]).Value;
-            var property = this._propertyByClassName.GetOrAdd(sourceContext, CreateFormattedLogEvent);
+    private static LogEventProperty CreateFormattedLogEvent(string source)
+    {
+        var split = source.Split('.');
 
-            logEvent.AddOrUpdateProperty(property);
-        }
-
-        private static LogEventProperty CreateFormattedLogEvent(string source)
-        {
-            var split = source.Split('.');
-
-            if (split.Length == 1)
-                return new("ClassName", new ScalarValue(PadClass(source)));
+        if (split.Length == 1)
+            return new("ClassName", new ScalarValue(PadClass(source)));
             
-            var sourceClass = split[^1];
+        var sourceClass = split[^1];
 
-            var sourceNamespace = split[..^1];
-            var firstNamespace = sourceNamespace[0];
+        var sourceNamespace = split[..^1];
+        var firstNamespace = sourceNamespace[0];
 
-            if (firstNamespace != typeof(ClassNameEnricher).Namespace)
-            {
-                var shortenedNamespace = string.Join('.', sourceNamespace.Select(name => name[0]));
-                sourceClass = $"{shortenedNamespace}.{sourceClass}";
-            }
-
-            sourceClass = PadClass(sourceClass);
-
-            return new("ClassName", new ScalarValue(sourceClass));
-        }
-
-        private static string PadClass(string name)
+        if (firstNamespace != typeof(ClassNameEnricher).Namespace)
         {
-            return name.Length > PADDING
-                ? $"{name[..(PADDING - 3)]}..."
-                : name.PadRight(PADDING, ' ');
+            var shortenedNamespace = string.Join('.', sourceNamespace.Select(name => name[0]));
+            sourceClass = $"{shortenedNamespace}.{sourceClass}";
         }
+
+        sourceClass = PadClass(sourceClass);
+
+        return new("ClassName", new ScalarValue(sourceClass));
+    }
+
+    private static string PadClass(string name)
+    {
+        return name.Length > PADDING
+            ? $"{name[..(PADDING - 3)]}..."
+            : name.PadRight(PADDING, ' ');
     }
 }

@@ -1,51 +1,50 @@
 ﻿using System;
 using System.Threading.Tasks;
 
-namespace Dwight
+namespace Dwight;
+
+public class ScheduledTask : IScheduledTask
 {
-    public class ScheduledTask : IScheduledTask
+    private static int _taskCounter;
+
+    public DateTimeOffset ExecuteAt { get; }
+    public Func<Task> Callback { get; }
+    public string Name { get; }
+    public bool IsCancelled { get; private set; }
+
+    private readonly TaskCompletionSource<bool> _taskCompletionSource;
+
+    public ScheduledTask(DateTimeOffset executeAt, Func<Task> callback)
+        : this(null, executeAt, callback)
     {
-        private static int _taskCounter;
+    }
 
-        public DateTimeOffset ExecuteAt { get; }
-        public Func<Task> Callback { get; }
-        public string Name { get; }
-        public bool IsCancelled { get; private set; }
+    public ScheduledTask(string? name, DateTimeOffset executeAt,Func<Task> callback)
+    {
+        Name = name ?? string.Concat("Task: ", _taskCounter++.ToString());
+        ExecuteAt = executeAt;
+        Callback = callback;
+        IsCancelled = false;
+        this._taskCompletionSource = new();
+    }
 
-        private readonly TaskCompletionSource<bool> _taskCompletionSource;
+    public void Cancel()
+    {
+        IsCancelled = true;
+    }
 
-        public ScheduledTask(DateTimeOffset executeAt, Func<Task> callback)
-            : this(null, executeAt, callback)
-        {
-        }
+    public async Task WaitUntilExecutedAsync()
+    {
+        await this._taskCompletionSource.Task;
+    }
 
-        public ScheduledTask(string name, DateTimeOffset executeAt,Func<Task> callback)
-        {
-            Name = name ?? string.Concat("Task: ", _taskCounter++.ToString());
-            ExecuteAt = executeAt;
-            Callback = callback;
-            IsCancelled = false;
-            this._taskCompletionSource = new();
-        }
+    void IScheduledTask.Completed()
+    {
+        this._taskCompletionSource.SetResult(true);
+    }
 
-        public void Cancel()
-        {
-            IsCancelled = true;
-        }
-
-        public async Task WaitUntilExecutedAsync()
-        {
-            await this._taskCompletionSource.Task;
-        }
-
-        void IScheduledTask.Completed()
-        {
-            this._taskCompletionSource.SetResult(true);
-        }
-
-        public int CompareTo(IScheduledTask other)
-        {
-            return ExecuteAt.CompareTo(other!.ExecuteAt);
-        }
+    public int CompareTo(IScheduledTask? other)
+    {
+        return ExecuteAt.CompareTo(other!.ExecuteAt);
     }
 }

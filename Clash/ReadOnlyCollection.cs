@@ -2,30 +2,29 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace ClashWrapper
+namespace ClashWrapper;
+
+internal class ReadOnlyCollection<T> : IReadOnlyCollection<T>
 {
-    internal class ReadOnlyCollection<T> : IReadOnlyCollection<T>
+    private readonly IEnumerable<T> _enumerable;
+    private readonly Func<int> _count;
+
+    public int Count => _count();
+
+    public ReadOnlyCollection(IEnumerable<T> enumerable, Func<int> count)
     {
-        private readonly IEnumerable<T> _enumerable;
-        private readonly Func<int> _count;
+        _enumerable = enumerable;
+        _count = count;
+    }
 
-        public int Count => _count();
+    public IEnumerator<T> GetEnumerator()
+        => _enumerable.GetEnumerator();
 
-        public ReadOnlyCollection(IEnumerable<T> enumerable, Func<int> count)
-        {
-            _enumerable = enumerable;
-            _count = count;
-        }
+    IEnumerator IEnumerable.GetEnumerator()
+        => _enumerable.GetEnumerator();
 
-        public IEnumerator<T> GetEnumerator()
-            => _enumerable.GetEnumerator();
-
-        IEnumerator IEnumerable.GetEnumerator()
-            => _enumerable.GetEnumerator();
-
-        public static ReadOnlyCollection<T> EmptyCollection()
-        {
-            return new ReadOnlyCollection<T>(new T[] {}, () => 0);
-        }
+    public static ReadOnlyCollection<T> EmptyCollection()
+    {
+        return new(new T[] {}, () => 0);
     }
 }

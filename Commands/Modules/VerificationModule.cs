@@ -4,153 +4,209 @@ using System.Threading.Tasks;
 using ClashWrapper;
 using ClashWrapper.Entities.ClanMembers;
 using Disqord;
-using Disqord.Bot;
+using Disqord.Bot.Commands;
+using Disqord.Bot.Commands.Application;
 using Disqord.Gateway;
 using Disqord.Rest;
 using Microsoft.EntityFrameworkCore;
 using Qmmands;
 
-namespace Dwight
+namespace Dwight;
+
+public class VerificationModule : DiscordApplicationGuildModuleBase
 {
-    public class VerificationModule : DiscordGuildModuleBase
+    private readonly ClashClient _clashClient;
+    private readonly DwightDbContext _dbContext;
+
+    public VerificationModule(ClashClient clashClient, DwightDbContext dbContext)
     {
-        private readonly ClashClient _clashClient;
-        private readonly DwightDbContext _dbContext;
+        _clashClient = clashClient;
+        _dbContext = dbContext;
+    }
 
-        public VerificationModule(ClashClient clashClient, DwightDbContext dbContext)
+    [SlashCommand("verify")]
+    [RequireBotPermissions(Permissions.ManageRoles)]
+    [RequireBotPermissions(Permissions.SetNick)]
+    [RequireAuthorPermissions(Permissions.ManageRoles)]
+    [Description("Verifies the given member with their in game clan tag")]
+    public async ValueTask<IResult> VerifyAsync(IMember member, string userTag)
+    {
+        userTag = userTag.ToUpper();
+
+        var guildId = Context.GuildId;
+        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
+
+        foreach (var guildMember in settings.Members)
         {
-            _clashClient = clashClient;
-            _dbContext = dbContext;
+            if (guildMember.DiscordId == member.Id)
+                return Response($"{member} is already verified");
+
+            if (guildMember.Tags.Contains(userTag, StringComparer.CurrentCultureIgnoreCase))
+                return Response($"Identity theft is not a joke, {Context.Author.Mention}");
         }
 
-        [Command("verify")]
-        [RequireBotGuildPermissions(Permission.ManageRoles)]
-        [RequireBotGuildPermissions(Permission.SetNick)]
-        [RequireAuthorGuildPermissions(Permission.ManageRoles)]
-        public async ValueTask<CommandResult> VerifyAsync(IMember member, string userTag)
+        if (settings.ClanTag == null)
+            return Response("Clan tag has not been configured for this clan");
+
+        var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag);
+
+        var clanMember = clanMembers.FirstOrDefault(member => member.Tag.Equals(userTag, StringComparison.CurrentCultureIgnoreCase));
+
+        if (clanMember == null)
+            return Response($"{userTag} is not a member of the clan");
+
+        var newMember = new ClashMember(guildId, member.Id, new[] { userTag }, 0, clanMember.Role);
+
+        settings.Members.Add(newMember);
+
+        _dbContext.Update(settings);
+        await _dbContext.SaveChangesAsync();
+
+        await member.ModifyAsync(props => props.Nick = clanMember.Name);
+        
+        var guild = Context.Bot.GetGuild(guildId);
+        if (guild == null)
         {
-            userTag = userTag.ToUpper();
-            
-            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
-
-            foreach (var guildMember in settings.Members)
-            {
-                if (guildMember.DiscordId == member.Id)
-                    return Reply($"{member} is already verified");
-
-                if (guildMember.Tags.Contains(userTag, StringComparer.CurrentCultureIgnoreCase))
-                    return Reply($"Identity theft is not a joke, {Context.Author.Mention}");
-            }
-
-            if (settings.ClanTag == null)
-                return Reply("Clan tag has not been configured for this clan");
-
-            var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag);
-
-            var clanMember = clanMembers.FirstOrDefault(member => member.Tag.Equals(userTag, StringComparison.CurrentCultureIgnoreCase));
-
-            if (clanMember == null)
-                return Reply($"{userTag} is not a member of the clan");
-
-            var newMember = new ClashMember(Context.GuildId, member.Id, new[] { userTag }, 0, clanMember.Role);
-
-            settings.Members.Add(newMember);
-
-            _dbContext.Update(settings);
-            await _dbContext.SaveChangesAsync();
-
-            await member.ModifyAsync(props => props.Nick = clanMember.Name);
-
-            if (Context.Guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var urole))
-                await member.RevokeRoleAsync(urole.Id);
-
-            if (Context.Guild.Roles.TryGetValue(settings.VerifiedRoleId, out var vrole))
-                await member.GrantRoleAsync(vrole.Id);
-
-            if (Context.Guild.GetChannel(settings.GeneralChannelId) is ITextChannel channel)
-                await channel.SendMessageAsync(new() { Content = $"{member.Mention} welcome to {Context.Guild}. You better learn the rules. If you don't, you'll be eaten in your sleep" });
-
-            var roleId = clanMember.Role switch
-            {
-                ClanRole.CoLeader => settings.CoLeaderRoleId,
-                ClanRole.Elder => settings.ElderRoleId,
-                _ => 0UL
-            };
-
-            if (Context.Guild.Roles.TryGetValue(roleId, out _))
-                await member.GrantRoleAsync(roleId);
-
-            return Reply("Member has been verified");
-        }
-
-        [Command("unverified")]
-        public async ValueTask<CommandResult> UnverifiedAsync()
-        {
-            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId);
-
-            if (!Context.Guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var role))
-                return Reply("Unverified role has not been setup yet");
-
-            var unverifiedMembers = Context.Guild.Members.Values
-                .Where(member => member.RoleIds.Contains(role.Id))
-                .Select(member => member.Nick ?? member.Name);
-
-            return Reply($"Unverified members:\n{string.Join('\n', unverifiedMembers)}");
-        }
-
-        [Command("addtag")]
-        [RequireAuthorGuildPermissions(Permission.ManageRoles)]
-        public async ValueTask<CommandResult> AddTagAsync(IMember member, string tag)
-        {
-            tag = tag.ToUpper();
-            
-            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
-
-            var clashMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag);
-            var clashMember = clashMembers.FirstOrDefault(member => member.Tag.Equals(tag, StringComparison.CurrentCultureIgnoreCase));
-
-            if (clashMember == null)
-                return Reply($"A member with tag {tag} does not exist in the clan");
-
-            var alreadyTaken = await _dbContext.Members.FirstOrDefaultAsync(member => member.Tags.Contains(tag));
-            if (alreadyTaken != null)
-                return Reply($"Identity theft is not a joke, {Context.Author.Mention}");
-
-            var clanMember = await _dbContext.Members.FindAsync(Context.GuildId.RawValue, member.Id.RawValue);
-            if (clanMember == null)
-                return Reply($"{member} has not been verified");
-
-            if (clanMember.Tags.Contains(tag, StringComparer.CurrentCultureIgnoreCase))
-                return Reply($"{member} already has tag {tag}");
-
-            clanMember.Tags = clanMember.Tags.Append(tag).ToArray();
-            _dbContext.Update(clanMember);
-            await _dbContext.SaveChangesAsync();
-
-            return Reply($"Added tag {tag} to {member}");
+            return Response("Guild not in bot cache, contact your local bot admin");
         }
         
-        [Command("removetag")]
-        [RequireAuthorGuildPermissions(Permission.ManageRoles)]
-        public async ValueTask<CommandResult> RemoveTagAsync(IMember member, string tag)
+        if (guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var unverifiedRole))
+            await member.RevokeRoleAsync(unverifiedRole.Id);
+
+        if (guild.Roles.TryGetValue(settings.VerifiedRoleId, out var verifiedRole))
+            await member.GrantRoleAsync(verifiedRole.Id);
+
+        if (guild.GetChannel(settings.GeneralChannelId) is ITextChannel generalChannel)
+            await generalChannel.SendMessageAsync(new() { Content = $"{member.Mention} welcome to {guild}. You better learn the rules. If you don't, you'll be eaten in your sleep" });
+
+        var roleId = clanMember.Role switch
         {
-            tag = tag.ToUpper();
-            
-            var clanMember = await _dbContext.Members.FindAsync(Context.GuildId.RawValue, member.Id.RawValue);
-            if (clanMember == null)
-                return Reply($"{member} has not been verified");
+            ClanRole.CoLeader => settings.CoLeaderRoleId,
+            ClanRole.Elder => settings.ElderRoleId,
+            _ => 0UL
+        };
 
-            if (clanMember.Tags.Length == 1)
-                return Reply($"{tag} is the last tag that {member} has, cannot remove it");
-            
-            if (!clanMember.Tags.Contains(tag, StringComparer.CurrentCultureIgnoreCase))
-                return Reply($"{member} doesn't have tag {tag}");
+        if (guild.Roles.TryGetValue(roleId, out _))
+            await member.GrantRoleAsync(roleId);
 
-            clanMember.Tags = clanMember.Tags.Where(other => !other.Equals(tag, StringComparison.CurrentCultureIgnoreCase)).ToArray();
-            _dbContext.Update(clanMember);
-            await _dbContext.SaveChangesAsync();
+        return Response("Member has been verified");
+    }
 
-            return Reply($"Removed tag {tag} to {member}");
+    [AutoComplete("verify")]
+    public async ValueTask AutoCompleteVerification(AutoComplete<string> userTag)
+    {
+        var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId);
+        if (settings.ClanTag == null)
+        {
+            return;
         }
+
+        // if (member.IsFocused)
+        // {
+        //     var guild = Context.Bot.GetGuild(Context.GuildId);
+        //     if (guild == null)
+        //     {
+        //         return;
+        //     }
+        //
+        //     var inGuildIds = settings.Members.Select(member => member.DiscordId).ToHashSet();
+        //     var unverified = guild.Members.Values.Where(member => !inGuildIds.Contains(member.Id));
+        //     member.Choices.AddRange(unverified);
+        // }
+
+        if (userTag.IsFocused)
+        {
+            var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
+            var members = await _clashClient.GetClanMembersAsync(settings.ClanTag);
+            var notInClan = members.Where(member => !inClan.Contains(member.Tag)).Select(member => member.Tag).Take(25);
+            userTag.Choices.AddRange(notInClan);
+        }
+    }
+
+    [SlashCommand("unverified")]
+    [Description("Lists all of the unverified members in the guild")]
+    public async ValueTask<IResult> UnverifiedAsync()
+    {
+        var guildId = Context.GuildId;
+        var guild = Context.Bot.GetGuild(guildId);
+        if (guild == null)
+        {
+            return Response("Guild not in bot cache, contact your local bot admin");
+        }
+        
+        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId);
+
+        if (!guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var role))
+            return Response("Unverified role has not been setup yet");
+
+        var unverifiedMembers = guild.Members.Values
+            .Where(member => member.RoleIds.Contains(role.Id))
+            .Select(member => member.Nick ?? member.Name);
+
+        return Response($"Unverified members:\n{string.Join('\n', unverifiedMembers)}");
+    }
+
+    [SlashCommand("add-alt")]
+    [RequireAuthorPermissions(Permissions.ManageRoles)]
+    [Description("Adds the given player tag to the member")]
+    public async ValueTask<IResult> AddTagAsync(IMember member, string tag)
+    {
+        var guildId = Context.GuildId;
+        
+        tag = tag.ToUpper();
+            
+        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
+
+        if (settings.ClanTag == null)
+        {
+            return Response("Clan tag has not been set for this guild");
+        }
+
+        var clashMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag);
+        var clashMember = clashMembers.FirstOrDefault(member => member.Tag.Equals(tag, StringComparison.CurrentCultureIgnoreCase));
+
+        if (clashMember == null)
+            return Response($"A member with tag {tag} does not exist in the clan");
+
+        var alreadyTaken = await _dbContext.Members.FirstOrDefaultAsync(member => member.Tags.Contains(tag));
+        if (alreadyTaken != null)
+            return Response($"Identity theft is not a joke, {Context.Author.Mention}");
+
+        var clanMember = await _dbContext.Members.FindAsync(guildId, member.Id.RawValue);
+        if (clanMember == null)
+            return Response($"{member} has not been verified");
+
+        if (clanMember.Tags.Contains(tag, StringComparer.CurrentCultureIgnoreCase))
+            return Response($"{member} already has tag {tag}");
+
+        clanMember.Tags = clanMember.Tags.Append(tag).ToArray();
+        _dbContext.Update(clanMember);
+        await _dbContext.SaveChangesAsync();
+
+        return Response($"Added tag {tag} to {member}");
+    }
+        
+    [SlashCommand("remove-alt")]
+    [RequireAuthorPermissions(Permissions.ManageRoles)]
+    [Description("Removes the given player tag from the member")]
+    public async ValueTask<IResult> RemoveTagAsync(IMember member, string tag)
+    {
+        tag = tag.ToUpper();
+            
+        var clanMember = await _dbContext.Members.FindAsync(Context.GuildId, member.Id.RawValue);
+        if (clanMember == null)
+            return Response($"{member} has not been verified");
+
+        if (clanMember.Tags.Length == 1)
+            return Response($"{tag} is the last tag that {member} has, cannot remove it");
+            
+        if (!clanMember.Tags.Contains(tag, StringComparer.CurrentCultureIgnoreCase))
+            return Response($"{member} doesn't have tag {tag}");
+
+        clanMember.Tags = clanMember.Tags.Where(other => !other.Equals(tag, StringComparison.CurrentCultureIgnoreCase)).ToArray();
+        _dbContext.Update(clanMember);
+        await _dbContext.SaveChangesAsync();
+
+        return Response($"Removed tag {tag} to {member}");
     }
 }

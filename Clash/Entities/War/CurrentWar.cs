@@ -1,61 +1,60 @@
 ﻿using System;
 using Model = ClashWrapper.Models.War.CurrentWarModel;
 
-namespace ClashWrapper.Entities.War
+namespace ClashWrapper.Entities.War;
+
+public class CurrentWar
 {
-    public class CurrentWar
+    private readonly Model _model;
+
+    internal CurrentWar(Model model)
     {
-        private readonly Model _model;
+        _model = model;
+    }
 
-        internal CurrentWar(Model model)
+    public WarState State
+    {
+        get
         {
-            _model = model;
-        }
-
-        public WarState State
-        {
-            get
+            switch (_model.State)
             {
-                switch (_model.State)
-                {
-                    case "preparation":
-                        return WarState.Preparation;
+                case "preparation":
+                    return WarState.Preparation;
 
-                    case "inWar":
-                        return WarState.InWar;
+                case "inWar":
+                    return WarState.InWar;
 
-                    case "warEnded":
-                        return WarState.Ended;
+                case "warEnded":
+                    return WarState.Ended;
 
-                    default:
-                        return WarState.Default;
-                }
+                default:
+                    return WarState.Default;
             }
         }
-
-        public int Size => _model.TeamSize;
-
-        public DateTimeOffset PreparationTime => Utilities.FromClashTime(_model.PreparationStartTime);
-        public DateTimeOffset StartTime => Utilities.FromClashTime(_model.StartTime);
-        public DateTimeOffset EndTime => Utilities.FromClashTime(_model.EndTime);
-
-        private WarClan _clan;
-        public WarClan Clan => _clan ?? (_clan = new WarClan(_model.Clan));
-
-        private WarClan _opponent;
-        public WarClan Opponent => _opponent ?? (_opponent = new WarClan(_model.Opponent));
-
-        public object FirstOrDefault(Func<object, object> p)
-        {
-            throw new NotImplementedException();
-        }
     }
 
-    public enum WarState
+    public int Size => _model.TeamSize;
+
+    public DateTimeOffset PreparationTime => Utilities.FromClashTime(_model.PreparationStartTime);
+    public DateTimeOffset StartTime => Utilities.FromClashTime(_model.StartTime);
+    public DateTimeOffset EndTime => Utilities.FromClashTime(_model.EndTime);
+
+    private WarClan _clan;
+    public WarClan Clan => _clan ?? (_clan = new WarClan(_model.Clan));
+
+    private WarClan _opponent;
+    public WarClan Opponent => _opponent ?? (_opponent = new WarClan(_model.Opponent));
+
+    public object FirstOrDefault(Func<object, object> p)
     {
-        Default,
-        Preparation,
-        InWar,
-        Ended
+        throw new NotImplementedException();
     }
+}
+
+public enum WarState
+{
+    Default,
+    Preparation,
+    InWar,
+    Ended
 }

@@ -1,15 +1,14 @@
 ﻿using System;
 
-namespace Dwight
-{
-    [AttributeUsage(AttributeTargets.Property)]
-    public class MapCommandAttribute : Attribute
-    {
-        public Type ParameterType { get; }
+namespace Dwight;
 
-        public MapCommandAttribute(Type parameterType)
-        {
-            ParameterType = parameterType;
-        }
+[AttributeUsage(AttributeTargets.Property)]
+public class MapCommandAttribute : Attribute
+{
+    public Type ParameterType { get; }
+
+    public MapCommandAttribute(Type parameterType)
+    {
+        ParameterType = parameterType;
     }
 }

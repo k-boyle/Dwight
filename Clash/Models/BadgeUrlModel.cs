@@ -1,16 +1,15 @@
 ﻿using Newtonsoft.Json;
 
-namespace ClashWrapper.Models
+namespace ClashWrapper.Models;
+
+internal class BadgeUrlModel
 {
-    internal class BadgeUrlModel
-    {
-        [JsonProperty("small")]
-        public string Small { get; set; }
+    [JsonProperty("small")]
+    public string Small { get; set; }
 
-        [JsonProperty("large")]
-        public string Large { get; set; }
+    [JsonProperty("large")]
+    public string Large { get; set; }
 
-        [JsonProperty("medium")]
-        public string Medium { get; set; }
-    }
+    [JsonProperty("medium")]
+    public string Medium { get; set; }
 }

@@ -1,9 +1,8 @@
 ﻿using System.Collections.Generic;
 
-namespace Dwight
+namespace Dwight;
+
+public class TownhallConfiguration
 {
-    public class TownhallConfiguration
-    {
-        public Dictionary<string, string> BaseLinkByLevel { get; set; }
-    }
+    public Dictionary<string, string> BaseLinkByLevel { get; set; }
 }

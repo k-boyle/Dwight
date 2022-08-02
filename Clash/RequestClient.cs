@@ -1,88 +1,163 @@
 ﻿using System;
-using System.Diagnostics;
+using System.Linq;
+using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Threading;
+using System.Text;
 using System.Threading.Tasks;
 using ClashWrapper.Entities;
 using ClashWrapper.Models;
 using ClashWrapper.RequestParameters;
 using Newtonsoft.Json;
 
-namespace ClashWrapper
+namespace ClashWrapper;
+
+internal class RequestClient
 {
-    internal class RequestClient
+    private readonly ClashClient _client;
+    private readonly ClashClientConfig _config;
+    private readonly HttpClient _httpClient;
+    private readonly CookieContainer _cookieContainer;
+
+    private string _currentToken;
+
+    private const string BaseUrl = "https://api.clashofclans.com";
+
+    public RequestClient(ClashClient client, ClashClientConfig config)
     {
-        private readonly ClashClient _client;
-        private readonly HttpClient _httpClient;
-        private readonly SemaphoreSlim _semaphore;
-        private readonly Ratelimiter _ratelimiter;
+        _client = client;
+        _config = config;
 
-        private const int MaxRequests = 5;
-        private const long RequestTime = 5000;
-
-        private const string BaseUrl = "https://api.clashofclans.com";
-        
-        public RequestClient(ClashClient client, ClashClientConfig config)
+        _cookieContainer = new();
+        _httpClient = new(new HttpClientHandler { CookieContainer = _cookieContainer })
         {
-            _client = client;
+            BaseAddress = new(BaseUrl)
+        };
 
-            _httpClient = new HttpClient
-            {
-                BaseAddress = new Uri(BaseUrl)
-            };
+        _httpClient.DefaultRequestHeaders.Accept.Add(new("application/json"));
+    }
 
-            _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-            _httpClient.DefaultRequestHeaders.Add("Authorization", $"Bearer {config.Token}");
+    public async Task<T> SendAsync<T>(string endpoint, BaseParameters parameters = null)
+    {
+        if (endpoint[0] != '/')
+            throw new ArgumentException($"{nameof(endpoint)} must start with a '/'");
 
-            _semaphore = new SemaphoreSlim(1);
-            _ratelimiter = new Ratelimiter(MaxRequests, RequestTime);
+        parameters = parameters ?? new EmptyParameters();
+
+        if (_currentToken == null)
+        {
+            var sessionCookie = await LoginAsync();
+            await DeleteOldKeyAsync(sessionCookie);
+            _currentToken = await CreateNewKeyAsync(sessionCookie);
         }
 
-        public async Task<T> SendAsync<T>(string endpoint, BaseParameters parameters = null)
+        var request = new HttpRequestMessage(HttpMethod.Get, endpoint)
         {
-            if(endpoint[0] != '/')
-                throw new ArgumentException($"{nameof(endpoint)} must start with a '/'");
+            Content = new StringContent(parameters.BuildContent())
+        };
+        request.Headers.Add("Authorization", $"Bearer {_currentToken}");
 
-            await _semaphore.WaitAsync().ConfigureAwait(false);
-            await _ratelimiter.WaitAsync().ConfigureAwait(false);
-
-            parameters = parameters ?? new EmptyParameters();
-
-            var request = new HttpRequestMessage(HttpMethod.Get, endpoint)
+        try
+        {
+            using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
             {
-                Content = new StringContent(parameters.BuildContent())
-            };
-
-            var sw = new Stopwatch();
-            sw.Start();
-
-            try
-            {
-                using (var response = await _httpClient.SendAsync(request).ConfigureAwait(false))
+                if (response.StatusCode == HttpStatusCode.Forbidden)
                 {
-                    _semaphore.Release();
-                    sw.Stop();
-
-                    var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-
-                    //await _client.InternalLogReceivedAsync($"GET {endpoint} {sw.ElapsedMilliseconds}ms");
-
-                    if (response.IsSuccessStatusCode) return JsonConvert.DeserializeObject<T>(content);
-
-                    var model = JsonConvert.DeserializeObject<ErrorModel>(content);
-                    var error = new ErrorMessage(model);
-
-                    await _client.InternalErrorReceivedAsync(error);
-                    return default;
+                    // :^}
+                    _currentToken = null;
+                    return await SendAsync<T>(endpoint, parameters);
                 }
-            }
-            catch (Exception ex)
-            {
-                await _client.InternalLogReceivedAsync(ex.ToString());
-                _semaphore.Release();
+                
+                var content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+                if (response.IsSuccessStatusCode) return JsonConvert.DeserializeObject<T>(content);
+
+                var model = JsonConvert.DeserializeObject<ErrorModel>(content);
+                var error = new ErrorMessage(model);
+
+                _client.InternalErrorReceived(error);
                 return default;
             }
         }
+        catch (Exception ex)
+        {
+            _client.Exception(ex);
+            return default;
+        }
     }
+
+    // this is all so horrifically bad lmaa
+    private async ValueTask<Cookie> LoginAsync()
+    {
+        var body = JsonConvert.SerializeObject(new { email = _config.Email, password = _config.Password });
+        var bodyContent = new StringContent(body, Encoding.UTF8, "application/json");
+        var uri = new Uri("https://developer.clashofclans.com/api/login");
+        using var response = await _httpClient.PostAsync(uri, bodyContent);
+        var content = await response.Content.ReadAsStringAsync();
+
+        if (!response.IsSuccessStatusCode)
+        {
+            var loginFailure = JsonConvert.DeserializeObject<LoginFailure>(content);
+            throw new("Failed to login due to " + loginFailure!.description);
+        }
+
+        return _cookieContainer.GetCookies(uri)[0];
+    }
+
+    private async ValueTask DeleteOldKeyAsync(Cookie cookie)
+    {
+        var requestKeysUri = new Uri("https://developer.clashofclans.com/api/apikey/list");
+        _cookieContainer.Add(requestKeysUri, cookie);
+        using var getKeysResponse = await _httpClient.PostAsync(requestKeysUri, new StringContent("{}", Encoding.UTF8, "application/json"));
+        var keysResponseContent = await getKeysResponse.Content.ReadAsStringAsync();
+
+        if (!getKeysResponse.IsSuccessStatusCode)
+        {
+            throw new("Failed to get keys");
+        }
+
+        var keys = JsonConvert.DeserializeObject<ApiKeys>(keysResponseContent);
+        var key = keys.keys.FirstOrDefault(key => key.name == "auto-token");
+        if (key != null)
+        {
+            var deleteKeyUri = new Uri("https://developer.clashofclans.com/api/apikey/revoke");
+            _cookieContainer.Add(deleteKeyUri, cookie);
+            var body = JsonConvert.SerializeObject(new { id = key.id });
+            var deleteKeyContent = new StringContent(body, Encoding.UTF8, "application/json");
+            using var deleteKeyResponse = await _httpClient.PostAsync(deleteKeyUri, deleteKeyContent);
+
+            if (!deleteKeyResponse.IsSuccessStatusCode)
+            {
+                throw new("Failed to delete old key");
+            }
+        }
+    }
+
+    private async ValueTask<string> CreateNewKeyAsync(Cookie cookie)
+    {
+        using var ipResponse = await _httpClient.GetAsync(new Uri("http://ipinfo.io/ip"));
+        var currentIp = await ipResponse.Content.ReadAsStringAsync();
+        var body = JsonConvert.SerializeObject(new
+            { name = "auto-token", description = "ip whitelist is stupid", cidrRanges = new string[]{ currentIp }, scopes = "" });
+        var bodyContent = new StringContent(body, Encoding.UTF8, "application/json");
+        var createUri = new Uri("https://developer.clashofclans.com/api/apikey/create");
+        _cookieContainer.Add(createUri, cookie);
+        using var response = await _httpClient.PostAsync(createUri, bodyContent);
+
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new("Failed to create new key");
+        }
+
+        return JsonConvert.DeserializeObject<Key>(await response.Content.ReadAsStringAsync()).key.key;
+    }
+
+    private record LoginFailure(string description);
+
+    private record ApiKey(string id, string name);
+
+    private record ApiKeys(ApiKey[] keys);
+
+    private record Key(StupidNestedKey key);
+
+    private record StupidNestedKey(string key);
 }

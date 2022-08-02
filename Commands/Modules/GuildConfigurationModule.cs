@@ -1,95 +1,168 @@
 ﻿using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot;
-using Disqord.Rest;
+using Disqord.Bot.Commands;
+using Disqord.Bot.Commands.Application;
+using Disqord.Bot.Commands.Interaction;
 using Qmmands;
-using Qmmands.Delegates;
 
-namespace Dwight
+namespace Dwight;
+
+[SlashGroup("settings")]
+[RequireAuthorPermissions(Permissions.Administrator, Group = "perms")]
+[RequireBotOwner(Group = "perms")]
+public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
 {
-    [RequireAuthorGuildPermissions(Permission.Administrator, Group = "perms")]
-    [RequireBotOwner(Group = "perms")]
-    public class GuildConfigurationModule : DiscordGuildModuleBase
+    private readonly DwightDbContext _dbContext;
+
+    [MutateModule]
+    public static void MutateModule(DiscordBotBase _, ApplicationModuleBuilder moduleBuilder)
     {
-        private readonly DwightDbContext _dbContext;
+        var guildSettings = typeof(GuildSettings);
+        var properties = guildSettings.GetProperties(BindingFlags.Public | BindingFlags.Instance);
 
-        [MutateModule]
-        public static void MutateModule(ModuleBuilder moduleBuilder)
+        foreach (var propertyInfo in properties)
         {
-            var settings = typeof(GuildSettings);
-            var properties = settings.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            var attribute = propertyInfo.GetCustomAttribute<MapCommandAttribute>();
+            if (attribute == null)
+                continue;
 
-            foreach (var propertyInfo in properties)
+            AddSetCommand(moduleBuilder, propertyInfo, attribute);
+            AddViewCommand(moduleBuilder, propertyInfo);
+        }
+    }
+
+    // todo duplicate code
+    // todo replace with auto complete commands?
+    private static void AddSetCommand(ApplicationModuleBuilder moduleBuilder, PropertyInfo propertyInfo, MapCommandAttribute attribute)
+    {
+        var callback = new DelegateCommandCallback(async _ =>
+        {
+            var context = (IDiscordApplicationCommandContext)_;
+            var dbContext = context.Services.GetDwightDbContext();
+
+            var settings = await dbContext.GetOrCreateSettingsAsync(context.GuildId!.Value.RawValue);
+            var argument = (ISnowflakeEntity)context.Arguments![context.Command!.Parameters[0]]!;
+            propertyInfo.SetValue(settings, (ulong)argument.Id);
+
+            await dbContext.SaveChangesAsync();
+
+            var setResponse = new LocalInteractionMessageResponse().WithContent($"{propertyInfo.Name} has been set to {argument.Id}");
+            return new DiscordInteractionResponseCommandResult(context, setResponse);
+        });
+
+        var trimmedPropertyName = propertyInfo.Name[..^2];
+        var name = Spacify(trimmedPropertyName, ' ');
+        var setModule = moduleBuilder.Submodules[0];
+        var commandBuilder = new ApplicationCommandBuilder(setModule, callback)
+        {
+            Name = name,
+            Alias = Spacify(trimmedPropertyName, '-').ToLower(),
+            Description = $"Sets the {name}"
+        };
+
+        var parameterType = attribute.ParameterType;
+        var parameter = new ApplicationParameterBuilder(commandBuilder, parameterType)
+        {
+            Name = parameterType.Name[1..]
+        };
+
+        commandBuilder.Parameters.Add(parameter);
+
+        setModule.Commands.Add(commandBuilder);
+    }
+
+    private static void AddViewCommand(ApplicationModuleBuilder moduleBuilder, PropertyInfo propertyInfo)
+    {
+        var callback = new DelegateCommandCallback(async _ =>
+        {
+            var context = (IDiscordApplicationCommandContext)_;
+            var dbContext = context.Services.GetDwightDbContext();
+
+            var settings = await dbContext.GetOrCreateSettingsAsync(context.GuildId!.Value.RawValue);
+            var value = propertyInfo.GetValue(settings);
+
+            var setResponse = new LocalInteractionMessageResponse().WithContent($"{propertyInfo.Name} has been set to \"{value}\"");
+            return new DiscordInteractionResponseCommandResult(context, setResponse);
+        });
+
+        var trimmedPropertyName = propertyInfo.Name[..^2];
+        var name = Spacify(trimmedPropertyName, ' ');
+        var viewModule = moduleBuilder.Submodules[1];
+        var commandBuilder = new ApplicationCommandBuilder(viewModule, callback)
+        {
+            Name = name,
+            Alias = Spacify(trimmedPropertyName, '-').ToLower(),
+            Description = $"Views the {name}"
+        };
+
+        viewModule.Commands.Add(commandBuilder);
+    }
+
+    private static string Spacify(string str, char separator)
+    {
+        var builder = new StringBuilder();
+        for (var i = 0; i < str.Length; i++)
+        {
+            if (i != 00 && char.IsUpper(str[i]))
             {
-                var attribute = propertyInfo.GetCustomAttribute<MapCommandAttribute>();
-                if (attribute == null)
-                    continue;
-
-                moduleBuilder.AddCommand(CreateCallback(propertyInfo), commandBuilder =>
-                {
-                    var trimmedPropertyName = propertyInfo.Name[..^2];
-                    commandBuilder.AddAlias(trimmedPropertyName.ToLower())
-                        .WithName($"Set{trimmedPropertyName}");
-                    var parameterType = attribute.ParameterType;
-                    commandBuilder.AddParameter(parameterType, parameterBuilder =>
-                    {
-                        var trimmedParameterName = parameterType.Name[1..];
-                        parameterBuilder.WithName(trimmedParameterName)
-                            .WithIsRemainder(true);
-                    });
-                });
+                builder.Append(separator);
             }
+
+            builder.Append(str[i]);
         }
 
-        private static TaskCommandCallbackDelegate CreateCallback(PropertyInfo propertyInfo)
+        return builder.ToString();
+    }
+
+    public GuildConfigurationModule(DwightDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
+    [SlashGroup("set")]
+    public class SetCommands : GuildConfigurationModule
+    {
+        public SetCommands(DwightDbContext dbContext) : base(dbContext)
         {
-            return async _ =>
-            {
-                var context = (DiscordGuildCommandContext) _;
-                var dbContext = context.Services.GetDwightDbContext();
-
-                var settings = await dbContext.GetOrCreateSettingsAsync(context.GuildId);
-                var argument = (ISnowflakeEntity) context.Arguments[0];
-                propertyInfo.SetValue(settings, (ulong) argument.Id);
-                
-                await dbContext.SaveChangesAsync();
-                await context.Channel.SendMessageAsync(
-                    new()
-                    {
-                        AllowedMentions = LocalAllowedMentions.ExceptRepliedUser,
-                        Content = $"{propertyInfo.Name} has been set to {argument.Id}"
-                    }
-                );
-            };
         }
 
-        public GuildConfigurationModule(DwightDbContext dbContext)
-        {
-            _dbContext = dbContext;
-        }
-
-        [Command("clantag")]
-        public async Task<CommandResult> SetClanTagAsync(string clanTag)
+        [SlashCommand("clan-tag")]
+        [Description("Sets the clan tag")]
+        public async ValueTask<IResult> SetClanTagAsync(string clanTag)
         {
             clanTag = clanTag.ToUpper();
-            
-            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId);
+
+            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
             settings.ClanTag = clanTag;
 
-            return Reply($"Clan tag has been set to {clanTag}");
+            return Response($"Clan tag has been set to {clanTag}");
         }
 
-        [Command("calendarlink")]
-        public async Task<CommandResult> SetCalendarLinkAsync(string calendarLink)
+        public override async ValueTask OnAfterExecuted()
         {
-            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId);
-            settings.CalendarLink = calendarLink;
+            await _dbContext.SaveChangesAsync();
+        }
+    }
 
-            return Reply($"Calendar link has been set to {calendarLink}");
+    [SlashGroup("view")]
+    public class ViewCommands : GuildConfigurationModule
+    {
+        public ViewCommands(DwightDbContext dbContext) : base(dbContext)
+        {
         }
 
-        protected override async ValueTask AfterExecutedAsync()
+        [SlashCommand("clan-tag")]
+        [Description("Views the clan tag")]
+        public async ValueTask<IResult> ViewClanTagAsync()
+        {
+            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
+            return Response($"Clan tag has been set to \"{settings.ClanTag}\"");
+        }
+
+        public override async ValueTask OnAfterExecuted()
         {
             await _dbContext.SaveChangesAsync();
         }

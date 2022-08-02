@@ -9,56 +9,55 @@ using Disqord.Gateway;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
-namespace Dwight.Services
+namespace Dwight.Services;
+
+public class WarReminderService : DiscordBotService
 {
-    public class WarReminderService : DiscordBotService
+    private static readonly TimeSpan ACCEPTABLE_WAR_THRESHOLD = TimeSpan.FromHours(1);
+        
+    private readonly PollingConfiguration _pollingConfiguration;
+    private readonly EspeonScheduler _scheduler;
+    private readonly ClashClient _clashClient;
+
+    public WarReminderService(IOptions<PollingConfiguration> pollingConfiguration, EspeonScheduler scheduler, ClashClient clashClient)
     {
-        private static readonly TimeSpan ACCEPTABLE_WAR_THRESHOLD = TimeSpan.FromHours(1);
+        _scheduler = scheduler;
+        _clashClient = clashClient;
+        _pollingConfiguration = pollingConfiguration.Value;
+    }
         
-        private readonly PollingConfiguration _pollingConfiguration;
-        private readonly EspeonScheduler _scheduler;
-        private readonly ClashClient _clashClient;
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        if (!_pollingConfiguration.WarReminderEnabled)
+            return;
 
-        public WarReminderService(IOptions<PollingConfiguration> pollingConfiguration, EspeonScheduler scheduler, ClashClient clashClient)
-        {
-            _scheduler = scheduler;
-            _clashClient = clashClient;
-            _pollingConfiguration = pollingConfiguration.Value;
-        }
+        await Bot.WaitUntilReadyAsync(stoppingToken);
+
+        _scheduler.DoNow(stoppingToken, CheckForWarsAsync);
+    }
         
-        protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    // todo handle maintenance
+    private async Task CheckForWarsAsync(CancellationToken cancellationToken)
+    {
+        await using var scope = Bot.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetDwightDbContext();
+
+        await foreach (var settings in context.GuildSettings.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
-            if (!_pollingConfiguration.WarReminderEnabled)
-                return;
+            if (Bot.GetChannel(settings.GuildId, settings.WarChannelId) is not IMessageChannel channel)
+                continue;
+                
+            if (string.IsNullOrEmpty(settings.ClanTag))
+                continue;
 
-            await Bot.WaitUntilReadyAsync(stoppingToken);
-
-            _scheduler.DoNow(stoppingToken, CheckForWarsAsync);
+            var currentWar = await _clashClient.GetCurrentWarAsync(settings.ClanTag);
+                
+            if (currentWar == null || currentWar.State is WarState.Default or WarState.Ended)
+                continue;
+                
+                
         }
-        
-        // todo handle maintenance
-        private async Task CheckForWarsAsync(CancellationToken cancellationToken)
-        {
-            await using var scope = Bot.Services.CreateAsyncScope();
-            var context = scope.ServiceProvider.GetDwightDbContext();
 
-            await foreach (var settings in context.GuildSettings.AsAsyncEnumerable().WithCancellation(cancellationToken))
-            {
-                if (Bot.GetChannel(settings.GuildId, settings.WarChannelId) is not IMessageChannel channel)
-                    continue;
-                
-                if (string.IsNullOrEmpty(settings.ClanTag))
-                    continue;
-
-                var currentWar = await _clashClient.GetCurrentWarAsync(settings.ClanTag);
-                
-                if (currentWar == null || currentWar.State is WarState.Default or WarState.Ended)
-                    continue;
-                
-                
-            }
-
-            _scheduler.DoIn(_pollingConfiguration.WarReminderPollingDuration, cancellationToken, CheckForWarsAsync);
-        }
+        _scheduler.DoIn(_pollingConfiguration.WarReminderPollingDuration, cancellationToken, CheckForWarsAsync);
     }
 }

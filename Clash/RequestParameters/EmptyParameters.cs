@@ -1,8 +1,7 @@
-﻿namespace ClashWrapper.RequestParameters
+﻿namespace ClashWrapper.RequestParameters;
+
+public class EmptyParameters : BaseParameters
 {
-    public class EmptyParameters : BaseParameters
-    {
-        public override string BuildContent()
-            => string.Empty;
-    }
+    public override string BuildContent()
+        => string.Empty;
 }
