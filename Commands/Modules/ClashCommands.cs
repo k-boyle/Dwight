@@ -58,16 +58,14 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         var clanTag = settings.ClanTag;
 
         if (clanTag == null)
-        {
             return Response("You need to set a clan tag for this guild");
-        }
-        
+
         var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag!);
         var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
 
         var missingMembers = clanMembers.Where(member => !inClan.Contains(member.Tag));
         var missingList = string.Join('\n', missingMembers.Select(x => $"{x.Name}{x.Tag}"));
 
-        return Response(missingList);
+        return Response(string.IsNullOrWhiteSpace(missingList) ? "Everyone is in the Discord, hallelujah!" : missingList);
     }
 }

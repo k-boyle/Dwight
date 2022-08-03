@@ -47,4 +47,17 @@ public class DwightBot : DiscordBot
 
         return base.OnAfterExecuted(context, result);
     }
+
+    protected override ValueTask OnCommandResult(IDiscordCommandContext context, IDiscordCommandResult result)
+    {
+        try
+        {
+            return base.OnCommandResult(context, result);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Exception thrown whilst executing OnCommandResult");
+            return ValueTask.CompletedTask;
+        }
+    }
 }
