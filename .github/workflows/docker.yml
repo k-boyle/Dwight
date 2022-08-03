@@ -26,4 +26,6 @@ jobs:
         uses: docker/build-push-action@v3
         with:
           push: true
-          tags: kieranthebest/dwight:latest
+          tags: |
+            kieranthebest/dwight:latest
+            kieranthebest/dwight:$(git rev-parse --short HEAD)
