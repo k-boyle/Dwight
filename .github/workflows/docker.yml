@@ -11,7 +11,8 @@ jobs:
     steps:
       -
         name: Get Short SHA
-        run: echo "SHORT_SHA=`git rev-parse --short HEAD`" >> $GITHUB_ENV
+        id: short
+        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v2
@@ -31,4 +32,4 @@ jobs:
           push: true
           tags: |
             kieranthebest/dwight:latest
-            kieranthebest/dwight:${{ SHORT_SHA }}
+            kieranthebest/dwight:${{ steps.short.outputs.sha_short }}
