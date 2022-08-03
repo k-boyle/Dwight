@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using ClashWrapper;
 using ClashWrapper.Entities.ClanMembers;
@@ -62,7 +63,7 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
         await _dbContext.SaveChangesAsync();
 
         await member.ModifyAsync(props => props.Nick = clanMember.Name);
-        
+
         var guild = Context.Bot.GetGuild(guildId);
         if (guild == null)
             return Response("Guild not in bot cache, contact your local bot admin");
@@ -74,7 +75,8 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
             await member.GrantRoleAsync(verifiedRole.Id);
 
         if (guild.GetChannel(settings.GeneralChannelId) is ITextChannel generalChannel)
-            await generalChannel.SendMessageAsync(new() { Content = $"{member.Mention} welcome to {guild}. You better learn the rules. If you don't, you'll be eaten in your sleep" });
+            await generalChannel.SendMessageAsync(new()
+                { Content = $"{member.Mention} welcome to {guild}. You better learn the rules. If you don't, you'll be eaten in your sleep" });
 
         var roleId = clanMember.Role switch
         {
@@ -87,6 +89,22 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
             await member.GrantRoleAsync(roleId);
 
         return Response("Member has been verified");
+    }
+
+    [MessageCommand("Verify")]
+    [Description("Verifies the user who posted the message")]
+    public async ValueTask<IResult> VerifyAsync(IMessage message)
+    {
+        var tagRegex = new Regex("(?<tag>#[A-Z0-9]{8})", RegexOptions.Compiled);
+        var match = tagRegex.Match(message.Content);
+        if (!match.Success)
+            return Response(new LocalInteractionMessageResponse { Content = "Failed to find a player tag in the message", IsEphemeral = true });
+
+        var group = match.Groups["tag"];
+        var tag = group.Value;
+        var member = await Context.Bot.FetchMemberAsync(Context.GuildId, message.Author.Id);
+        
+        return await VerifyAsync(member!, tag);
     }
 
     [SlashCommand("unverified")]
