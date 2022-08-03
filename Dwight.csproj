@@ -7,6 +7,10 @@
         <Nullable>enable</Nullable>
         <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
         <!--      <WarningsAsErrors>Nullable</WarningsAsErrors>-->
+        <RestoreAdditionalProjectSources>
+            https://api.nuget.org/v3/index.json;
+            https://www.myget.org/F/disqord/api/v3/index.json
+        </RestoreAdditionalProjectSources>
     </PropertyGroup>
 
     <ItemGroup>
