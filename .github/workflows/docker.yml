@@ -12,7 +12,7 @@ jobs:
       -
         name: Get Short SHA
         id: short
-        run: echo "::set-output name=sha_short::$(git rev-parse --short HEAD)"
+        run: echo ::set-output name=sha_short::$(git rev-parse --short HEAD)
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v2
