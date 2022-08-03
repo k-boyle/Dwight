@@ -19,11 +19,24 @@ public class WarReminderService : DiscordBotService
     private readonly EspeonScheduler _scheduler;
     private readonly ClashClient _clashClient;
 
+    private ScheduledTask<CancellationToken> _loopTask;
+
     public WarReminderService(IOptions<PollingConfiguration> pollingConfiguration, EspeonScheduler scheduler, ClashClient clashClient)
     {
         _scheduler = scheduler;
         _clashClient = clashClient;
         _pollingConfiguration = pollingConfiguration.Value;
+
+        _clashClient.Error += message =>
+        {
+            if (message.Reason != "inMaintenance")
+                return Task.CompletedTask;
+
+            _loopTask!.Cancel();
+            // _loopTask = _scheduler.DoIn(_pollingConfiguration.WarReminderPollingDuration, _loopTask.State, CheckForWarsAsync);
+
+            return Task.CompletedTask;
+        };
     }
         
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -33,10 +46,11 @@ public class WarReminderService : DiscordBotService
 
         await Bot.WaitUntilReadyAsync(stoppingToken);
 
-        _scheduler.DoNow(stoppingToken, CheckForWarsAsync);
+        _loopTask = _scheduler.DoNow(stoppingToken, CheckForWarsAsync);
     }
-        
+
     // todo handle maintenance
+    // todo logs
     private async Task CheckForWarsAsync(CancellationToken cancellationToken)
     {
         await using var scope = Bot.Services.CreateAsyncScope();
@@ -50,14 +64,44 @@ public class WarReminderService : DiscordBotService
             if (string.IsNullOrEmpty(settings.ClanTag))
                 continue;
 
+            if (settings.WarRole == 0)
+                continue;
+
             var currentWar = await _clashClient.GetCurrentWarAsync(settings.ClanTag);
                 
             if (currentWar == null || currentWar.State is WarState.Default or WarState.Ended)
                 continue;
-                
-                
+
+            switch (currentWar.State)
+            {
+                // case WarState.Preparation:
+                // {
+                //     var sinceMatched = DateTimeOffset.UtcNow - currentWar.PreparationTime;
+                //     if (sinceMatched < ACCEPTABLE_WAR_THRESHOLD)
+                //         continue;
+                //
+                //     var startTime = currentWar.StartTime - DateTimeOffset.UtcNow;
+                //     _scheduler.DoIn(startTime, cancellationToken, WarReminders); // todo
+                //     break;
+                // }
+                //
+                // case WarState.InWar:
+                // {
+                //     var sinceMatched = DateTimeOffset.UtcNow - currentWar.PreparationTime;
+                //     if (sinceMatched < ACCEPTABLE_WAR_THRESHOLD)
+                //         continue;
+                //
+                //     _scheduler.DoNow(cancellationToken, WarReminders); // todo
+                //     break;
+                // }
+            }
         }
 
-        _scheduler.DoIn(_pollingConfiguration.WarReminderPollingDuration, cancellationToken, CheckForWarsAsync);
+        _loopTask = _scheduler.DoIn(_pollingConfiguration.WarReminderPollingDuration, cancellationToken, CheckForWarsAsync);
     }
+    //
+    // private Task WarReminders(CancellationToken cancellationToken, ulong warRole, IMessageChannel warChannel)
+    // {
+    //     
+    // }
 }

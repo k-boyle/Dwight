@@ -29,6 +29,9 @@ public class GuildSettings
 
     [MapCommand(typeof(IRole))]
     public ulong CoLeaderRoleId { get; set; }
+    
+    [MapCommand(typeof(IRole))]
+    public ulong WarRole { get; set; }
 
     public List<ClashMember> Members { get; set; } = new();
 

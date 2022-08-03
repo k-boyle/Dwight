@@ -48,4 +48,26 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 
         return Response(responseString);
     }
+
+    // todo precondition for clantag
+    [SlashCommand("discord-check")]
+    [Description("Finds all the members that are in the clan but not in the Discord")]
+    public async ValueTask<IResult> DiscordCheckAsync()
+    {
+        var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
+        var clanTag = settings.ClanTag;
+
+        if (clanTag == null)
+        {
+            return Response("You need to set a clan tag for this guild");
+        }
+        
+        var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag!);
+        var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
+
+        var missingMembers = clanMembers.Where(member => !inClan.Contains(member.Tag));
+        var missingList = string.Join('\n', missingMembers.Select(x => $"{x.Name}{x.Tag}"));
+
+        return Response(missingList);
+    }
 }

@@ -50,36 +50,52 @@ public class RoleService : DiscordBotService
         var save = false;
         foreach (var settings in allSettings)
         {
-            Logger.LogInformation("Checking roles for guild {GuildId}", settings.GuildId);
+            Logger.LogDebug("Checking roles for guild {GuildId}", settings.GuildId);
 
             if (settings.ClanTag == null)
             {
-                Logger.LogInformation("Clan tag not set for {GuildId}, skipping", settings.GuildId);
+                Logger.LogDebug("Clan tag not set for {GuildId}, skipping", settings.GuildId);
                 continue;
             }
 
             var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag);
             if (clanMembers.Count == 0)
             {
-                Logger.LogInformation("Got no members for clan {ClanTag}", settings.ClanTag);
+                Logger.LogDebug("Got no members for clan {ClanTag}", settings.ClanTag);
                 continue;
             }
+
+            var discordMembers = (await Bot.FetchMembersAsync(settings.GuildId)).ToDictionary(member => member.Id);
 
             foreach (var clanMember in clanMembers)
             {
                 var clashMember = settings.Members.FirstOrDefault(member => member.Tags.Contains(clanMember.Tag, StringComparer.CurrentCultureIgnoreCase));
-                Logger.LogDebug("clanMember role {One}, clashMember role {Two}", clanMember.Role, clashMember?.Role);
-                    
-                if (clashMember == null || clashMember.Role == clanMember.Role)
+                if (clashMember == null)
                     continue;
+
+                Logger.LogDebug("clanMember role {One}, clashMember role {Two}", clanMember.Role, clashMember?.Role);
+
+                var discordMember = discordMembers[clashMember!.DiscordId];
+
+                if (clashMember.Role == clanMember.Role)
+                {
+                    var roleId = GetRoleId(settings, clashMember.Role);
                     
+                    if (discordMember.RoleIds.Contains(roleId))
+                        continue;
+
+                    Logger.LogInformation("{Member} was missing role {Role}", discordMember.Id, roleId);
+
+                    await Bot.GrantRoleAsync(settings.GuildId, clashMember.DiscordId, roleId);
+                }
+
                 Logger.LogDebug("Checking roles for member {MemberId}", clashMember.DiscordId);
 
                 // todo yeet
                 async Task UpdateRoleAsync(GuildSettings guildSettings, ClashMember clashMember, ClanRole role, ulong removeId, ulong addId)
                 {
-                    Logger.LogDebug("Giving member {MemberId} role {RoleId}", clashMember.DiscordId, addId);
-                        
+                    Logger.LogInformation("Giving member {MemberId} role {RoleId}", clashMember.DiscordId, addId);
+
                     await Bot.RevokeRoleAsync(guildSettings.GuildId, clashMember.DiscordId, removeId);
                     await Bot.GrantRoleAsync(guildSettings.GuildId, clashMember.DiscordId, addId);
                     clashMember.Role = role;
@@ -106,5 +122,15 @@ public class RoleService : DiscordBotService
             await context.SaveChangesAsync();
 
         _scheduler.DoIn(_pollingConfiguration.RoleCheckingPollingDuration, CheckRolesAsync);
+    }
+
+    private static ulong GetRoleId(GuildSettings settings, ClanRole role)
+    {
+        return role switch
+        {
+            ClanRole.Elder => settings.ElderRoleId,
+            ClanRole.Leader => settings.CoLeaderRoleId,
+            ClanRole.CoLeader => settings.CoLeaderRoleId
+        };
     }
 }
