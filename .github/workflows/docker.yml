@@ -27,5 +27,5 @@ jobs:
         with:
           push: true
           tags: |
-            kieranthebest/dwight:latest
             kieranthebest/dwight:${{ github.sha }}
+            kieranthebest/dwight:latest
