@@ -92,6 +92,9 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
     }
 
     [MessageCommand("Verify")]
+    [RequireBotPermissions(Permissions.ManageRoles)]
+    [RequireBotPermissions(Permissions.SetNick)]
+    [RequireAuthorPermissions(Permissions.ManageRoles)]
     [Description("Verifies the user who posted the message")]
     public async ValueTask<IResult> VerifyAsync(IMessage message)
     {
