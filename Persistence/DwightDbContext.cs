@@ -44,6 +44,7 @@ public class DwightDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
             entity.HasOne(settings => settings.CurrentWarReminder)
                 .WithOne()
+                .HasForeignKey<CurrentWarReminder>(reminder => reminder.GuildId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.ToTable("guild_settings");
         });
