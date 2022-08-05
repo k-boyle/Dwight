@@ -10,7 +10,6 @@ using Qmmands;
 
 namespace Dwight;
 
-[SlashGroup("settings")]
 [RequireAuthorPermissions(Permissions.Administrator, Group = "perms")]
 [RequireBotOwner(Group = "perms")]
 public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
@@ -35,7 +34,6 @@ public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
     }
 
     // todo duplicate code
-    // todo replace with auto complete commands?
     private static void AddSetCommand(ApplicationModuleBuilder moduleBuilder, PropertyInfo propertyInfo, MapCommandAttribute attribute)
     {
         var callback = new DelegateCommandCallback(async _ =>
