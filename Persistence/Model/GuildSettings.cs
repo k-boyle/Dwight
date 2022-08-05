@@ -31,9 +31,11 @@ public class GuildSettings
     public ulong CoLeaderRoleId { get; set; }
     
     [MapCommand(typeof(IRole))]
-    public ulong WarRole { get; set; }
+    public ulong WarRoleId { get; set; }
 
     public List<ClashMember> Members { get; set; } = new();
+    
+    public CurrentWarReminder? CurrentWarReminder { get; set; }
 
     public GuildSettings(
         ulong guildId,
@@ -44,7 +46,8 @@ public class GuildSettings
         ulong warChannelId,
         ulong generalChannelId,
         ulong elderRoleId,
-        ulong coLeaderRoleId)
+        ulong coLeaderRoleId,
+        CurrentWarReminder currentWarReminder)
     {
         GuildId = guildId;
         ClanTag = clanTag;
@@ -55,6 +58,7 @@ public class GuildSettings
         GeneralChannelId = generalChannelId;
         ElderRoleId = elderRoleId;
         CoLeaderRoleId = coLeaderRoleId;
+        CurrentWarReminder = currentWarReminder;
     }
 
     public GuildSettings(ulong guildId)

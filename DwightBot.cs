@@ -12,17 +12,11 @@ namespace Dwight;
 
 public class DwightBot : DiscordBot
 {
-    public DwightBot(IOptions<DiscordBotConfiguration> options, ILogger<DwightBot> logger, IServiceProvider services, DiscordClient client, EspeonScheduler scheduler)
+    public DwightBot(IOptions<DiscordBotConfiguration> options, ILogger<DwightBot> logger, IServiceProvider services, DiscordClient client)
         : base(options, logger, services, client)
     {
-        scheduler.OnError += OnSchedulerError;
     }
-
-    private void OnSchedulerError(Exception ex)
-    {
-        Logger.LogError(ex, "An unhandled exception occurred in the scheduler");
-    }
-
+    
     protected override ValueTask<IResult> OnBeforeExecuted(IDiscordCommandContext context)
     {
         var command = context.Command!;

@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using ClashWrapper;
@@ -6,39 +8,28 @@ using ClashWrapper.Entities.War;
 using Disqord;
 using Disqord.Bot.Hosting;
 using Disqord.Gateway;
+using Disqord.Rest;
+using HtmlAgilityPack;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Dwight.Services;
+namespace Dwight;
 
 public class WarReminderService : DiscordBotService
 {
-    private static readonly TimeSpan ACCEPTABLE_WAR_THRESHOLD = TimeSpan.FromHours(1);
-        
     private readonly PollingConfiguration _pollingConfiguration;
-    private readonly EspeonScheduler _scheduler;
     private readonly ClashClient _clashClient;
+    private readonly HttpClient _httpClient;
 
-    private ScheduledTask<CancellationToken> _loopTask;
-
-    public WarReminderService(IOptions<PollingConfiguration> pollingConfiguration, EspeonScheduler scheduler, ClashClient clashClient)
+    public WarReminderService(IOptions<PollingConfiguration> pollingConfiguration, ClashClient clashClient, HttpClient httpClient)
     {
-        _scheduler = scheduler;
-        _clashClient = clashClient;
         _pollingConfiguration = pollingConfiguration.Value;
-
-        _clashClient.Error += message =>
-        {
-            if (message.Reason != "inMaintenance")
-                return Task.CompletedTask;
-
-            _loopTask!.Cancel();
-            // _loopTask = _scheduler.DoIn(_pollingConfiguration.WarReminderPollingDuration, _loopTask.State, CheckForWarsAsync);
-
-            return Task.CompletedTask;
-        };
+        _clashClient = clashClient;
+        _httpClient = httpClient;
     }
-        
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!_pollingConfiguration.WarReminderEnabled)
@@ -46,62 +37,121 @@ public class WarReminderService : DiscordBotService
 
         await Bot.WaitUntilReadyAsync(stoppingToken);
 
-        _loopTask = _scheduler.DoNow(stoppingToken, CheckForWarsAsync);
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await CheckForWarsAsync(stoppingToken);
+            await Task.Delay(_pollingConfiguration.WarReminderPollingDuration, stoppingToken);
+        }
     }
 
-    // todo handle maintenance
-    // todo logs
     private async Task CheckForWarsAsync(CancellationToken cancellationToken)
     {
         await using var scope = Bot.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetDwightDbContext();
 
-        await foreach (var settings in context.GuildSettings.AsAsyncEnumerable().WithCancellation(cancellationToken))
+        var save = false;
+        var allReminders = context.GuildSettings.Include(settings => settings.CurrentWarReminder);
+        await foreach (var settings in allReminders.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
-            if (Bot.GetChannel(settings.GuildId, settings.WarChannelId) is not IMessageChannel channel)
+            var guildId = settings.GuildId;
+            if (settings.ClanTag == null)
+            {
+                Logger.LogInformation("Clan tag not set for {Guild}", guildId);
                 continue;
-                
-            if (string.IsNullOrEmpty(settings.ClanTag))
-                continue;
-
-            if (settings.WarRole == 0)
-                continue;
+            }
 
             var currentWar = await _clashClient.GetCurrentWarAsync(settings.ClanTag);
-                
             if (currentWar == null || currentWar.State is WarState.Default or WarState.Ended)
+            {
+                Logger.LogInformation("{Guild} is not currently in war", guildId);
                 continue;
+            }
+
+            var opponentTag = currentWar.Opponent.Tag;
+            var savedWar = settings.CurrentWarReminder;
+            var currentReminder = savedWar != null && savedWar.EnemyClan != opponentTag
+                ? savedWar
+                : new(guildId, opponentTag);
+
+            var channel = Bot.GetChannel(guildId, settings.WarChannelId)
+                ?? await Bot.FetchChannelAsync(settings.WarChannelId, cancellationToken: cancellationToken);
+
+            if (channel is not IMessageChannel warChannel)
+            {
+                Logger.LogInformation("{Guild} has not set their war channel, or it is not a text channel", guildId);
+                continue;
+            }
+
+            var warRole = Bot.GetRole(guildId, settings.WarRoleId);
+            if (warRole == null)
+                Logger.LogInformation("{Guild} hasn't set their war role", guildId);
 
             switch (currentWar.State)
             {
-                // case WarState.Preparation:
-                // {
-                //     var sinceMatched = DateTimeOffset.UtcNow - currentWar.PreparationTime;
-                //     if (sinceMatched < ACCEPTABLE_WAR_THRESHOLD)
-                //         continue;
-                //
-                //     var startTime = currentWar.StartTime - DateTimeOffset.UtcNow;
-                //     _scheduler.DoIn(startTime, cancellationToken, WarReminders); // todo
-                //     break;
-                // }
-                //
-                // case WarState.InWar:
-                // {
-                //     var sinceMatched = DateTimeOffset.UtcNow - currentWar.PreparationTime;
-                //     if (sinceMatched < ACCEPTABLE_WAR_THRESHOLD)
-                //         continue;
-                //
-                //     _scheduler.DoNow(cancellationToken, WarReminders); // todo
-                //     break;
-                // }
+                case WarState.Preparation when !currentReminder.DeclaredPosted:
+                {
+                    // todo add role
+                    var response = await _httpClient.GetAsync($"https://points.fwa.farm/result.php?clan={settings.ClanTag.Replace("#", "")}", cancellationToken);
+                    var body = await response.Content.ReadAsStringAsync(cancellationToken);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        Logger.LogError(new Exception(body), "There was a problem retrieving html from fwa");
+                        continue;
+                    }
+
+                    var document = new HtmlDocument();
+                    document.LoadHtml(body);
+                    var outcomeNode = document.DocumentNode.SelectSingleNode("/html/body/main/div/center[2]/span");
+
+                    var message = new LocalMessage
+                    {
+                        Content = $"War has been declared!\n{outcomeNode}"
+                    };
+                    await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
+                    currentReminder.DeclaredPosted = true;
+                    save = true;
+                    break;
+                }
+
+                case WarState.InWar:
+                {
+                    if (!currentReminder.StartedPosted)
+                    {
+                        var message = new LocalMessage
+                        {
+                            Content = warRole == null ? "War has started!" : $"{warRole.Mention}, war has started!"
+                        };
+                        await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
+                        currentReminder.StartedPosted = true;
+                        save = true;
+                    }
+                    else if (!currentReminder.ReminderPosted && currentWar.EndTime - DateTimeOffset.UtcNow < TimeSpan.FromHours(1))
+                    {
+                        var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks.Count < 2).ToList();
+                        if (missedAttacks.Count == 0)
+                            continue;
+
+                        var inWarTags = currentWar.Clan.Members.Select(member => member.Tag).ToHashSet();
+                        var clashMembers = await context.Members.Where(member => member.GuildId == settings.GuildId).ToListAsync(cancellationToken);
+                        var inDiscord = clashMembers.Where(member => member.Tags.Any(tag => inWarTags.Contains(tag)));
+                        var mentions = string.Join("\n", inDiscord.Select(member => Mention.User(member.DiscordId)));
+
+                        var message = new LocalMessage
+                        {
+                            Content = $"War ends soon,\n{mentions}\n\nYou still need to attack!"
+                        };
+                        await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
+                        
+                        currentReminder.ReminderPosted = true;
+                        save = true;
+                    }
+
+                    break;
+                }
             }
         }
 
-        _loopTask = _scheduler.DoIn(_pollingConfiguration.WarReminderPollingDuration, cancellationToken, CheckForWarsAsync);
+        if (save)
+            await context.SaveChangesAsync(cancellationToken);
     }
-    //
-    // private Task WarReminders(CancellationToken cancellationToken, ulong warRole, IMessageChannel warChannel)
-    // {
-    //     
-    // }
 }

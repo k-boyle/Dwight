@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Dwight.Services;
+namespace Dwight;
 
 public class WelcomingService : DiscordBotService
 {

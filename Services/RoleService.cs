@@ -11,17 +11,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-namespace Dwight.Services;
+namespace Dwight;
 
 public class RoleService : DiscordBotService
 {
-    private readonly EspeonScheduler _scheduler;
     private readonly PollingConfiguration _pollingConfiguration;
     private readonly ClashClient _clashClient;
 
-    public RoleService(EspeonScheduler scheduler, IOptions<PollingConfiguration> pollingConfiguration, ClashClient clashClient)
+    public RoleService(IOptions<PollingConfiguration> pollingConfiguration, ClashClient clashClient)
     {
-        _scheduler = scheduler;
         _clashClient = clashClient;
         _pollingConfiguration = pollingConfiguration.Value;
     }
@@ -33,7 +31,11 @@ public class RoleService : DiscordBotService
             
         await Bot.WaitUntilReadyAsync(stoppingToken);
 
-        _scheduler.DoNow(CheckRolesAsync);
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            await CheckRolesAsync();
+            await Task.Delay(_pollingConfiguration.WarReminderPollingDuration, stoppingToken);
+        }
     }
 
     private async Task CheckRolesAsync()
@@ -120,8 +122,6 @@ public class RoleService : DiscordBotService
 
         if (save)
             await context.SaveChangesAsync();
-
-        _scheduler.DoIn(_pollingConfiguration.RoleCheckingPollingDuration, CheckRolesAsync);
     }
 
     private static ulong GetRoleId(GuildSettings settings, ClanRole role)

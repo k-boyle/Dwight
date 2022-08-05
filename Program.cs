@@ -63,7 +63,6 @@ public class Program
                         options => options.UseNpgsql(config.GetConnectionString("Dwight")),
                         optionsLifetime: ServiceLifetime.Singleton
                     )
-                    .AddSingleton<EspeonScheduler>()
                     .AddSingleton(new ClashClientConfig { Email = config["Clash:Email"], Password = config["Clash:Password"] })
                     .AddSingleton<ClashClient>()
                     .AddSingleton<HttpClient>()

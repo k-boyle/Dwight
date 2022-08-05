@@ -5,7 +5,7 @@ using Disqord.Gateway;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
-namespace Dwight.Services;
+namespace Dwight;
 
 public class PurgingService : DiscordBotService
 {

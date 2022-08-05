@@ -27,12 +27,22 @@ public class DwightDbContext : DbContext
             entity.ToTable("clan_members");
         });
 
+        modelBuilder.Entity<CurrentWarReminder>(entity =>
+        {
+            entity.HasIndex(war => war.GuildId);
+            entity.HasKey(war => war.GuildId);
+            entity.ToTable("current_wars");
+        });
+
         modelBuilder.Entity<GuildSettings>(entity =>
         {
             entity.HasIndex(settings => settings.GuildId)
                 .IsUnique();
             entity.HasKey(settings => settings.GuildId);
             entity.HasMany(settings => settings.Members)
+                .WithOne()
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(settings => settings.CurrentWarReminder)
                 .WithOne()
                 .OnDelete(DeleteBehavior.Cascade);
             entity.ToTable("guild_settings");
