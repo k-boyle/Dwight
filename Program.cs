@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Net.Http;
 using System.Threading.Tasks;
 using ClashWrapper;
 using Disqord.Bot.Hosting;
@@ -65,7 +64,7 @@ public class Program
                     )
                     .AddSingleton(new ClashClientConfig { Email = config["Clash:Email"], Password = config["Clash:Password"] })
                     .AddSingleton<ClashClient>()
-                    .AddSingleton<HttpClient>()
+                    .AddHttpClient()
                     .Configure<TownhallConfiguration>(context.Configuration.GetSection("Clash"))
                     .Configure<PollingConfiguration>(context.Configuration.GetSection("Polling"));
             })
