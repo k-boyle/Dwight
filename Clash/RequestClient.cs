@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using ClashWrapper.Entities;
 using ClashWrapper.Models;
@@ -17,6 +18,7 @@ internal class RequestClient
     private readonly ClashClientConfig _config;
     private readonly HttpClient _httpClient;
     private readonly CookieContainer _cookieContainer;
+    private readonly SemaphoreSlim _tokenSemaphore;
 
     private string _currentToken;
 
@@ -34,6 +36,8 @@ internal class RequestClient
         };
 
         _httpClient.DefaultRequestHeaders.Accept.Add(new("application/json"));
+
+        _tokenSemaphore = new(1);
     }
 
     public async Task<T> SendAsync<T>(string endpoint, BaseParameters parameters = null)
@@ -45,9 +49,16 @@ internal class RequestClient
 
         if (_currentToken == null)
         {
-            var sessionCookie = await LoginAsync();
-            await DeleteOldKeyAsync(sessionCookie);
-            _currentToken = await CreateNewKeyAsync(sessionCookie);
+            await _tokenSemaphore.WaitAsync();
+
+            if (_currentToken == null)
+            {
+                var sessionCookie = await LoginAsync();
+                await DeleteOldKeyAsync(sessionCookie);
+                _currentToken = await CreateNewKeyAsync(sessionCookie);
+            }
+
+            _tokenSemaphore.Release();
         }
 
         var request = new HttpRequestMessage(HttpMethod.Get, endpoint)
@@ -63,7 +74,9 @@ internal class RequestClient
                 if (response.StatusCode == HttpStatusCode.Forbidden)
                 {
                     // :^}
+                    await _tokenSemaphore.WaitAsync();
                     _currentToken = null;
+                    _tokenSemaphore.Release();
                     return await SendAsync<T>(endpoint, parameters);
                 }
                 

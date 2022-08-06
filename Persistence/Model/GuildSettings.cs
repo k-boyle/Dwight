@@ -9,7 +9,7 @@ public class GuildSettings
 
     public string? ClanTag { get; set; }
 
-    [MapCommand(typeof(ITextChannel))]
+    [MapCommand(typeof(IInteractionChannel))]
     public ulong WelcomeChannelId { get; set; }
 
     [MapCommand(typeof(IRole))]
@@ -18,10 +18,10 @@ public class GuildSettings
     [MapCommand(typeof(IRole))]
     public ulong UnverifiedRoleId { get; set; }
 
-    [MapCommand(typeof(ITextChannel))]
+    [MapCommand(typeof(IInteractionChannel))]
     public ulong WarChannelId { get; set; }
 
-    [MapCommand(typeof(ITextChannel))]
+    [MapCommand(typeof(IInteractionChannel))]
     public ulong GeneralChannelId { get; set; }
     
     [MapCommand(typeof(IRole))]
