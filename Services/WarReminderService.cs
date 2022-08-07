@@ -122,7 +122,7 @@ public class WarReminderService : DiscordBotService
                     {
                         var message = new LocalMessage
                         {
-                            Content = warRole == null ? "War has started!" : $"{warRole.Mention}, war has started!"
+                            Content = warRole == null ? $"War has started against {currentWar.Opponent.Name}!" : $"{warRole.Mention}, war has started against {currentWar.Opponent.Name}!"
                         };
                         await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
                         currentReminder.StartedPosted = true;
