@@ -76,6 +76,8 @@ public class WarReminderService : DiscordBotService
                 ? savedWar
                 : new(guildId, opponentTag);
 
+            settings.CurrentWarReminder = currentReminder;
+
             var channel = Bot.GetChannel(guildId, settings.WarChannelId)
                 ?? await Bot.FetchChannelAsync(settings.WarChannelId, cancellationToken: cancellationToken);
 
