@@ -4,6 +4,7 @@ namespace Dwight;
 
 public class PollingConfiguration
 {
+    // todo unify
     public bool RoleCheckingEnabled { get; set; }
     public TimeSpan RoleCheckingPollingDuration { get; set; }
 

@@ -9,6 +9,7 @@ using ClashWrapper.Entities.Player;
 using ClashWrapper.Entities.War;
 using ClashWrapper.Entities.WarLog;
 using ClashWrapper.Models.ClanMembers;
+using ClashWrapper.Models.League;
 using ClashWrapper.Models.Player;
 using ClashWrapper.Models.War;
 using ClashWrapper.Models.WarLog;
@@ -138,5 +139,28 @@ public class ClashClient
             return null;
 
         return new(model);
+    }
+
+    public async Task<LeagueGroup> GetLeagueGroupAsync(string clanTag)
+    {
+        if (string.IsNullOrWhiteSpace(clanTag))
+            throw new ArgumentNullException(clanTag);
+
+        clanTag = clanTag[0] == '#' ? clanTag.Replace("#", "%23") : clanTag;
+
+        return await _request.SendAsync<LeagueGroup>($"/v1/clans/{clanTag}/currentwar/leaguegroup");
+    }
+
+    public async Task<CurrentWar> GetLeagueWarAsync(string warTag)
+    {
+        if (string.IsNullOrWhiteSpace(warTag))
+            throw new ArgumentNullException(warTag);
+
+        warTag = warTag[0] == '#' ? warTag.Replace("#", "%23") : warTag;
+        
+        var model = await _request.SendAsync<CurrentWarModel>($"/v1/clanwarleagues/wars/{warTag}")
+            .ConfigureAwait(false);
+
+        return model is null ? null : new CurrentWar(model);
     }
 }
