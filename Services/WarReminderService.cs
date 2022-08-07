@@ -72,7 +72,7 @@ public class WarReminderService : DiscordBotService
 
             var opponentTag = currentWar.Opponent.Tag;
             var savedWar = settings.CurrentWarReminder;
-            var currentReminder = savedWar != null && savedWar.EnemyClan != opponentTag
+            var currentReminder = savedWar != null && savedWar.EnemyClan == opponentTag
                 ? savedWar
                 : new(guildId, opponentTag);
 
@@ -122,6 +122,8 @@ public class WarReminderService : DiscordBotService
                 {
                     if (!currentReminder.StartedPosted)
                     {
+                        Logger.LogInformation("Posting war started for {ClanTag}", clanTag);
+                        
                         var message = new LocalMessage
                         {
                             Content = warRole == null ? $"War has started against {currentWar.Opponent.Name}!" : $"{warRole.Mention}, war has started against {currentWar.Opponent.Name}!"
@@ -132,6 +134,8 @@ public class WarReminderService : DiscordBotService
                     }
                     else if (!currentReminder.ReminderPosted && currentWar.EndTime - DateTimeOffset.UtcNow < TimeSpan.FromHours(1))
                     {
+                        Logger.LogInformation("Posting attack reminders for {ClanTag}", clanTag);
+
                         var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks.Count < 2).ToList();
                         if (missedAttacks.Count == 0)
                             continue;
@@ -149,6 +153,10 @@ public class WarReminderService : DiscordBotService
 
                         currentReminder.ReminderPosted = true;
                         save = true;
+                    }
+                    else
+                    {
+                        Logger.LogInformation("Nothing to post for {ClanTag}", clanTag);
                     }
 
                     break;
