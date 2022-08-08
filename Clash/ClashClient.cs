@@ -141,7 +141,7 @@ public class ClashClient
         return new(model);
     }
 
-    public async Task<LeagueGroup> GetLeagueGroupAsync(string clanTag)
+    public async Task<LeagueGroup?> GetLeagueGroupAsync(string clanTag)
     {
         if (string.IsNullOrWhiteSpace(clanTag))
             throw new ArgumentNullException(clanTag);

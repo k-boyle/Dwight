@@ -52,9 +52,10 @@ public class WarReminderService : DiscordBotService
         var context = scope.ServiceProvider.GetDwightDbContext();
 
         var save = false;
-        var allReminders = context.GuildSettings.Include(settings => settings.CurrentWarReminder);
+        var allSettings = context.GuildSettings.Include(settings => settings.CurrentWarReminder)
+            .Include(settings => settings.Members);
         // todo this _should_ really be parallel
-        await foreach (var settings in allReminders.AsAsyncEnumerable().WithCancellation(cancellationToken))
+        await foreach (var settings in allSettings.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
             var guildId = settings.GuildId;
             var clanTag = settings.ClanTag;
@@ -124,26 +125,52 @@ public class WarReminderService : DiscordBotService
                     if (!currentReminder.StartedPosted)
                     {
                         Logger.LogInformation("Posting war started for {ClanTag}", clanTag);
-                        
+
                         var message = new LocalMessage
                         {
-                            Content = warRole == null ? $"War has started against {currentWar.Opponent.Name}!" : $"{warRole.Mention}, war has started against {currentWar.Opponent.Name}!"
+                            Content = warRole == null
+                                ? $"War has started against {currentWar.Opponent.Name}!"
+                                : $"{warRole.Mention}, war has started against {currentWar.Opponent.Name}!"
                         };
                         await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
                         currentReminder.StartedPosted = true;
                         save = true;
                     }
-                    else if (!currentReminder.ReminderPosted && currentWar.EndTime - DateTimeOffset.UtcNow < TimeSpan.FromHours(1))
+                    else if (currentWar.Cwl && !currentReminder.CwlReminderPosted && currentWar.EndTime - DateTimeOffset.UtcNow < TimeSpan.FromHours(4))
                     {
-                        Logger.LogInformation("Posting attack reminders for {ClanTag}", clanTag);
+                        Logger.LogInformation("Posting cwl attack reminders for {ClanTag}", clanTag);
 
-                        var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks.Count < 2).ToList();
+                        var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks.Count == 0).ToList();
                         if (missedAttacks.Count == 0)
                             continue;
 
                         var inWarTags = currentWar.Clan.Members.Select(member => member.Tag).ToHashSet();
                         var clashMembers = await context.Members.Where(member => member.GuildId == settings.GuildId).ToListAsync(cancellationToken);
                         var inDiscord = clashMembers.Where(member => member.Tags.Any(tag => inWarTags.Contains(tag)));
+                        var mentions = string.Join("\n", inDiscord.Select(member => Mention.User(member.DiscordId)));
+
+                        var message = new LocalMessage
+                        {
+                            Content = $"War ends soon,\n{mentions}\n\nYou still need to attack!"
+                        };
+                        await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
+
+                        currentReminder.CwlReminderPosted = true;
+                        save = true;
+                    }
+                    else if (!currentReminder.ReminderPosted && currentWar.EndTime - DateTimeOffset.UtcNow < TimeSpan.FromHours(1))
+                    {
+                        Logger.LogInformation("Posting attack reminders for {ClanTag}", clanTag);
+
+                        var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks.Count < (currentWar.Cwl ? 1 : 2))
+                            .Where(member => currentWar.Cwl || !currentWar.Cwl && Remind(settings, member.Tag))
+                            .Select(member => member.Tag)
+                            .ToHashSet();
+
+                        if (missedAttacks.Count == 0)
+                            continue;
+                        
+                        var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
                         var mentions = string.Join("\n", inDiscord.Select(member => Mention.User(member.DiscordId)));
 
                         var message = new LocalMessage
@@ -174,14 +201,17 @@ public class WarReminderService : DiscordBotService
         var clanTag = settings.ClanTag!;
         var currentWar = await _clashClient.GetCurrentWarAsync(clanTag!);
         if (currentWar.State == WarState.InWar)
-            return GetCurrentWarData(currentWar, clanTag);
+            return new(currentWar.State, currentWar.EndTime, currentWar.Clan, currentWar.Opponent, false);
 
         Logger.LogInformation("{ClanTag} is not currently in a normal war, checking for CWL", clanTag);
 
         var group = await _clashClient.GetLeagueGroupAsync(clanTag);
+        if (group == null)
+            return null;
+
         if (group.State == State.InWar)
             return await GetCurrentWarAsync(group.Rounds, group.Rounds.Count - 1, 0, clanTag);
-        
+
         Logger.LogInformation("{ClanTag} is not currently in CWL", clanTag);
         return null;
     }
@@ -204,7 +234,7 @@ public class WarReminderService : DiscordBotService
                 continue;
             }
 
-            var currentWarData = GetCurrentWarData(currentWar, clanTag);
+            var currentWarData = GetCurrentCwlWarData(currentWar, clanTag);
             if (currentWarData != null)
                 return currentWarData;
 
@@ -214,17 +244,22 @@ public class WarReminderService : DiscordBotService
         return null;
     }
 
-    private static CurrentWarData? GetCurrentWarData(CurrentWar currentWar, string clanTag)
+    private static CurrentWarData? GetCurrentCwlWarData(CurrentWar currentWar, string clanTag)
     {
         // thanks clash api
         if (currentWar.Clan.Tag == clanTag)
-            return new(currentWar.State, currentWar.EndTime, currentWar.Clan, currentWar.Opponent);
+            return new(currentWar.State, currentWar.EndTime, currentWar.Clan, currentWar.Opponent, true);
 
         if (currentWar.Opponent.Tag == clanTag)
-            return new(currentWar.State,currentWar.EndTime, currentWar.Opponent, currentWar.Clan);
+            return new(currentWar.State, currentWar.EndTime, currentWar.Opponent, currentWar.Clan, true);
 
         return null;
     }
 
-    private record CurrentWarData(WarState State, DateTimeOffset EndTime, WarClan Clan, WarClan Opponent);
+    private record CurrentWarData(WarState State, DateTimeOffset EndTime, WarClan Clan, WarClan Opponent, bool Cwl);
+
+    private static bool Remind(GuildSettings settings, string tag)
+    {
+        return settings.Members.FirstOrDefault(member => Array.FindIndex(member.Tags, str => str == tag) != -1)?.Remind ?? false;
+    }
 }

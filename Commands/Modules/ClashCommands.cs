@@ -59,4 +59,22 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 
         return Response(string.IsNullOrWhiteSpace(missingList) ? "Everyone is in the Discord, hallelujah!" : missingList);
     }
+
+    [SlashCommand("reminders")]
+    [Description("Set whether you want attack reminders in wars")]
+    public async Task<IResult> RemindersAsync(bool remind)
+    {
+        var member = await _dbContext.Members.FindAsync(Context.GuildId.RawValue, Context.Author.Id.RawValue);
+        if (member == null)
+            return Response("You are not part of a clan");
+
+        if (member.Remind != remind)
+        {
+            member.Remind = remind;
+            _dbContext.Members.Update(member);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        return Response(remind ? "You will now receive reminders to attack in farm wars" : "You will no longer receive reminders to attack in farm wars");
+    }
 }

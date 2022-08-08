@@ -53,7 +53,7 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
         if (clanMember == null)
             return Response($"{userTag} is not a member of the clan");
 
-        var newMember = new ClashMember(guildId, member.Id, new[] { userTag }, 0, clanMember.Role);
+        var newMember = new ClashMember(guildId, member.Id, new[] { userTag }, 0, clanMember.Role, false);
 
         settings.Members.Add(newMember);
 

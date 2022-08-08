@@ -34,7 +34,7 @@ public class GuildSettings
     public ulong WarRoleId { get; set; }
 
     public List<ClashMember> Members { get; set; } = new();
-    
+
     public CurrentWarReminder? CurrentWarReminder { get; set; }
 
     public GuildSettings(
