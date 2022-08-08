@@ -61,7 +61,7 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
     }
 
     [SlashCommand("reminders")]
-    [Description("Set whether you want attack reminders in wars")]
+    [Description("Set whether you want attack reminders in farm wars")]
     public async Task<IResult> RemindersAsync(bool remind)
     {
         var member = await _dbContext.Members.FindAsync(Context.GuildId.RawValue, Context.Author.Id.RawValue);

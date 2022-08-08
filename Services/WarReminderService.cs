@@ -41,7 +41,15 @@ public class WarReminderService : DiscordBotService
 
         while (!stoppingToken.IsCancellationRequested)
         {
-            await CheckForWarsAsync(stoppingToken);
+            try
+            {
+                await CheckForWarsAsync(stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "An exception occured whilst checking for wars");
+            }
+
             await Task.Delay(_pollingConfiguration.WarReminderPollingDuration, stoppingToken);
         }
     }
