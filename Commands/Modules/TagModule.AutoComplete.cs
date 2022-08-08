@@ -10,13 +10,11 @@ public partial class TagModule
     public async ValueTask AddAltAsync(AutoComplete<string> tag)
     {
         var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
-        if (settings.ClanTag == null)
-            return;
-
+        
         if (tag.IsFocused)
         {
             var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
-            var members = await _clashClient.GetClanMembersAsync(settings.ClanTag);
+            var members = await _clashClient.GetClanMembersAsync(settings.ClanTag!);
             var notInClan = members.Where(member => !inClan.Contains(member.Tag)).Select(member => member.Tag).Take(25);
             tag.Choices.AddRange(notInClan);
         }

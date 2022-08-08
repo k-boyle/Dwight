@@ -28,7 +28,8 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
     [RequireBotPermissions(Permissions.ManageRoles)]
     [RequireBotPermissions(Permissions.SetNick)]
     [RequireAuthorPermissions(Permissions.ManageRoles)]
-    [Description("Verifies the given member with their in game clan tag")]
+    [RequireClanTag]
+    [Description("Verifies the given member with their in game player tag")]
     public async ValueTask<IResult> VerifyAsync(IMember member, string userTag)
     {
         userTag = userTag.ToUpper();
@@ -45,10 +46,7 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
                 return Response($"Identity theft is not a joke, {Context.Author.Mention}");
         }
 
-        if (settings.ClanTag == null)
-            return Response("Clan tag has not been configured for this clan");
-
-        var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag);
+        var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag!);
 
         var clanMember = clanMembers.FirstOrDefault(member => member.Tag.Equals(userTag, StringComparison.CurrentCultureIgnoreCase));
 
@@ -95,6 +93,7 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
     [RequireBotPermissions(Permissions.ManageRoles)]
     [RequireBotPermissions(Permissions.SetNick)]
     [RequireAuthorPermissions(Permissions.ManageRoles)]
+    [RequireClanTag]
     [Description("Verifies the user who posted the message")]
     public async ValueTask<IResult> VerifyAsync(IMessage message)
     {

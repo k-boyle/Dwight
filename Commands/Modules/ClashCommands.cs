@@ -20,16 +20,12 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
     }
 
     [SlashCommand("members")]
+    [RequireClanTag]
     [Description("Gets the current members in the clan ordered by donations")]
     public async ValueTask<IResult> ViewMembersAsync()
     {
         var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId);
-        var clanTag = settings.ClanTag;
-
-        if (clanTag == null)
-        {
-            return Response("You need to set a clan tag for this guild");
-        }
+        var clanTag = settings.ClanTag!;
 
         var members = await _clashClient.GetClanMembersAsync(clanTag);
         var orderedByDonation = members.OrderByDescending(member => member.Donations);
@@ -49,17 +45,12 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         return Response(responseString);
     }
 
-    // todo precondition for clantag
     [SlashCommand("discord-check")]
+    [RequireClanTag]
     [Description("Finds all the members that are in the clan but not in the Discord")]
     public async ValueTask<IResult> DiscordCheckAsync()
     {
         var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
-        var clanTag = settings.ClanTag;
-
-        if (clanTag == null)
-            return Response("You need to set a clan tag for this guild");
-
         var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag!);
         var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
 

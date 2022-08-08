@@ -25,6 +25,7 @@ public partial class TagModule : DiscordApplicationGuildModuleBase
     
     [SlashCommand("add")]
     [RequireAuthorPermissions(Permissions.ManageRoles)]
+    [RequireClanTag]
     [Description("Adds the given player tag to the member")]
     public async ValueTask<IResult> AddAltAsync(IMember member, string tag)
     {
@@ -34,10 +35,7 @@ public partial class TagModule : DiscordApplicationGuildModuleBase
 
         var settings = await _dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
 
-        if (settings.ClanTag == null)
-            return Response("Clan tag has not been set for this guild");
-
-        var clashMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag);
+        var clashMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag!);
         var clashMember = clashMembers.FirstOrDefault(member => member.Tag.Equals(tag, StringComparison.CurrentCultureIgnoreCase));
 
         if (clashMember == null)
@@ -74,7 +72,7 @@ public partial class TagModule : DiscordApplicationGuildModuleBase
 
         if (clashMember.Tags.Length == 1)
             return Response($"{tag} is the last tag that {member.Mention} has, cannot remove it");
-            
+
         if (!clashMember.Tags.Contains(tag, StringComparer.CurrentCultureIgnoreCase))
             return Response($"{member.Mention} doesn't have tag {tag}");
 

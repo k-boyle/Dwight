@@ -53,6 +53,7 @@ public class WarReminderService : DiscordBotService
 
         var save = false;
         var allReminders = context.GuildSettings.Include(settings => settings.CurrentWarReminder);
+        // todo this _should_ really be parallel
         await foreach (var settings in allReminders.AsAsyncEnumerable().WithCancellation(cancellationToken))
         {
             var guildId = settings.GuildId;
