@@ -9,4 +9,9 @@ public class TestModule : DiscordApplicationModuleBase
     [Description("🏓")]
     public IResult Ping()
         => Response("pong");
+
+    [SlashCommand("sauce")]
+    [Description("The good sauce")]
+    public IResult Sauce()
+        => Response("https://github.com/k-boyle/Dwight/");
 }
