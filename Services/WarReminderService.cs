@@ -152,13 +152,14 @@ public class WarReminderService : DiscordBotService
                         {
                             Logger.LogInformation("Posting cwl attack reminders for {ClanTag}", clanTag);
 
-                            var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks.Count == 0).ToList();
+                            var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks.Count == 0)
+                                .Select(member => member.Tag)
+                                .ToHashSet();
+
                             if (missedAttacks.Count == 0)
                                 continue;
 
-                            var inWarTags = currentWar.Clan.Members.Select(member => member.Tag).ToHashSet();
-                            var clashMembers = await context.Members.Where(member => member.GuildId == settings.GuildId).ToListAsync(cancellationToken);
-                            var inDiscord = clashMembers.Where(member => member.Tags.Any(tag => inWarTags.Contains(tag)));
+                            var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
                             var mentions = string.Join("\n", inDiscord.Select(member => Mention.User(member.DiscordId)));
 
                             var message = new LocalMessage
@@ -181,7 +182,7 @@ public class WarReminderService : DiscordBotService
 
                             if (missedAttacks.Count == 0)
                                 continue;
-                        
+
                             var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
                             var mentions = string.Join("\n", inDiscord.Select(member => Mention.User(member.DiscordId)));
 
