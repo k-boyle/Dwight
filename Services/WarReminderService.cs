@@ -160,7 +160,7 @@ public class WarReminderService : DiscordBotService
                                 continue;
 
                             var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
-                            var mentions = string.Join("\n", inDiscord.Select(member => Mention.User(member.DiscordId)));
+                            var mentions = string.Join(", ", inDiscord.Select(member => Mention.User(member.DiscordId)));
 
                             var message = new LocalMessage
                             {
@@ -184,7 +184,7 @@ public class WarReminderService : DiscordBotService
                                 continue;
 
                             var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
-                            var mentions = string.Join("\n", inDiscord.Select(member => Mention.User(member.DiscordId)));
+                            var mentions = string.Join(", ", inDiscord.Select(member => Mention.User(member.DiscordId)));
 
                             var message = new LocalMessage
                             {
