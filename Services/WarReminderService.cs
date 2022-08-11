@@ -214,7 +214,7 @@ public class WarReminderService : DiscordBotService
     {
         var clanTag = settings.ClanTag!;
         var currentWar = await _clashClient.GetCurrentWarAsync(clanTag!);
-        if (currentWar.State == WarState.InWar)
+        if (currentWar.State is WarState.InWar or WarState.Preparation)
             return new(currentWar.State, currentWar.EndTime, currentWar.Clan, currentWar.Opponent, false);
 
         Logger.LogInformation("{ClanTag} is not currently in a normal war, checking for CWL", clanTag);

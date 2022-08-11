@@ -57,7 +57,7 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         var missingMembers = clanMembers.Where(member => !inClan.Contains(member.Tag));
         var missingList = string.Join('\n', missingMembers.Select(x => $"{x.Name}{x.Tag}"));
 
-        return Response(string.IsNullOrWhiteSpace(missingList) ? "Everyone is in the Discord, hallelujah!" : missingList);
+        return Response(string.IsNullOrWhiteSpace(missingList) ? "Why are all these people here? There's too many people on this earth. We need a new plague" : missingList);
     }
 
     [SlashCommand("reminders")]
