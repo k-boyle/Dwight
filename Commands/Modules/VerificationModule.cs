@@ -74,7 +74,7 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
 
         if (guild.GetChannel(settings.GeneralChannelId) is ITextChannel generalChannel)
             await generalChannel.SendMessageAsync(new()
-                { Content = $"{member.Mention} welcome to {guild.Name}. You better learn the rules. If you don't, you'll be eaten in your sleep" });
+                { Content = $"{member.Mention} welcome to Hotel {guild.Name}. Check-in time is now. Check-out time is never. \nYou better learn the rules. If you don't, you'll be eaten in your sleep" });
 
         var roleId = clanMember.Role switch
         {

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using ClashWrapper;
@@ -107,7 +108,8 @@ public class WarReminderService : DiscordBotService
                 case WarState.Preparation when !currentReminder.DeclaredPosted:
                 {
                     // todo add role
-                    var response = await _httpClient.GetAsync($"https://points.fwa.farm/result.php?clan={clanTag.Replace("#", "")}", cancellationToken);
+                    var resultUri = $"https://points.fwa.farm/result.php?clan={clanTag.Replace("#", "")}";
+                    var response = await _httpClient.GetAsync(resultUri, cancellationToken);
                     var body = await response.Content.ReadAsStringAsync(cancellationToken);
                     if (!response.IsSuccessStatusCode)
                     {
@@ -117,11 +119,19 @@ public class WarReminderService : DiscordBotService
 
                     var document = new HtmlDocument();
                     document.LoadHtml(body);
-                    var outcomeNode = document.DocumentNode.SelectSingleNode("/html/body/main/div/center[2]/span");
+                    var outcomeRegex = new Regex(@"\w[\w\s]+", RegexOptions.Compiled | RegexOptions.RightToLeft);
+                    var outcomeNode = document.DocumentNode.SelectSingleNode("/html/body/main/div/center[3]/span");
+                    var match = outcomeRegex.Match(outcomeNode.InnerText);
+
+                    if (!match.Success)
+                    {
+                        Logger.LogError("Failed to scrape fwa website");
+                        continue;
+                    }
 
                     var message = new LocalMessage
                     {
-                        Content = $"War has been declared!\n{outcomeNode}"
+                        Content = $"War has been declared!\n{match.Value}\nGo to {resultUri} to see the breakdown"
                     };
                     await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
                     currentReminder.DeclaredPosted = true;
