@@ -1,5 +1,13 @@
-﻿using System.Collections.Generic;
+﻿using System;
 
 namespace Dwight;
 
-public record ClientError(string Reason, string Message, string Type, Dictionary<string, string> Detail);
+public class ClientError<T> : Exception
+{
+    private readonly T _error;
+    
+    public ClientError(T error)
+    {
+        _error = error;
+    }
+}

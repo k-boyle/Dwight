@@ -1,7 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
+﻿using System.Net.Http;
 using Microsoft.Extensions.Logging;
 
 namespace Dwight;
@@ -19,9 +16,9 @@ public class ClashApiClient
         _tokenProvider = tokenProvider;
     }
 
-    public async Task<ApiResponse<IReadOnlyCollection<ClanMember>>> GetClanMembersAsync(string clanTag, CancellationToken cancellationToken)
-    {
-        var token = await _tokenProvider.GetTokenAsync(cancellationToken);
-        
-    }
+    // public async Task<IReadOnlyCollection<ClanMember>> GetClanMembersAsync(string clanTag, CancellationToken cancellationToken)
+    // {
+    //     var token = await _tokenProvider.GetTokenAsync(cancellationToken);
+    //     
+    // }
 }

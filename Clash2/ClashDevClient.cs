@@ -1,4 +1,5 @@
-﻿using System.Net.Http;
+﻿using System.Net;
+using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -12,11 +13,11 @@ public class ClashDevClient
     private readonly HttpClient _httpClient;
     private readonly ILogger<ClashDevClient> _logger;
 
+    private Cookie _cookie;
+
     public ClashDevClient(IHttpClientFactory httpClientFactory, ILogger<ClashDevClient> logger)
     {
         _httpClient = httpClientFactory.CreateClient(nameof(ClashDevClient));
-        _httpClient.BaseAddress = new("https://developer.clashofclans.com/api/");
-
         _logger = logger;
     }
 
@@ -30,11 +31,16 @@ public class ClashDevClient
         using var response = await _httpClient.PostAsync("login", bodyContent, cancellationToken);
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        if (response.IsSuccessStatusCode) 
+        if (response.IsSuccessStatusCode)
             return JsonConvert.DeserializeObject<Login>(content);
-        
-        var failure = JsonConvert.DeserializeObject<LoginFailure>(content);
+
+        var failure = JsonConvert.DeserializeObject<LoginFailure>(content)!;
         _logger.LogError("Failed to authenticate with developer API due to {LoginFailure}", failure);
-        return null;
+        throw new ClientError<LoginFailure>(failure);
     }
+
+    // public async Task<ApiKeys> GetKeysAsync()
+    // {
+    //     
+    // }
 }

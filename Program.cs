@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 using ClashWrapper;
 using Disqord.Bot.Hosting;
@@ -76,6 +77,8 @@ public class Program
             var context = services.GetDwightDbContext();
             await context.Database.MigrateAsync();
         }
+
+        var login = await host.Services.GetService<ClashDevClient>().LoginAsync(new("kayrenhi@gmail.com", "Lkm?acn5iXPR"), CancellationToken.None);
 
         try
         {
