@@ -15,12 +15,12 @@ namespace Dwight;
 
 public partial class VerificationModule : DiscordApplicationGuildModuleBase
 {
-    private readonly ClashClient _clashClient;
+    private readonly ClashApiClient _clashApiClient;
     private readonly DwightDbContext _dbContext;
 
-    public VerificationModule(ClashClient clashClient, DwightDbContext dbContext)
+    public VerificationModule(ClashApiClient clashApiClient, DwightDbContext dbContext)
     {
-        _clashClient = clashClient;
+        _clashApiClient = clashApiClient;
         _dbContext = dbContext;
     }
 
@@ -46,7 +46,7 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
                 return Response($"Identity theft is not a joke, {Context.Author.Mention}");
         }
 
-        var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag!);
+        var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!);
 
         var clanMember = clanMembers.FirstOrDefault(member => member.Tag.Equals(userTag, StringComparison.CurrentCultureIgnoreCase));
 

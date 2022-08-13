@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading;
 using System.Threading.Tasks;
-using ClashWrapper;
 using Disqord.Bot.Hosting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -63,11 +62,10 @@ public class Program
                         options => options.UseNpgsql(config.GetConnectionString("Dwight")),
                         optionsLifetime: ServiceLifetime.Singleton
                     )
-                    .AddSingleton(new ClashClientConfig { Email = config["Clash:Email"], Password = config["Clash:Password"] })
-                    .AddSingleton<ClashClient>()
-                    .AddHttpClient()
                     .Configure<TownhallConfiguration>(context.Configuration.GetSection("Clash"))
-                    .Configure<PollingConfiguration>(context.Configuration.GetSection("Polling"));
+                    .Configure<PollingConfiguration>(context.Configuration.GetSection("Polling"))
+                    .Configure<ClashConfiguration>(context.Configuration.GetSection("Clash"))
+                    .AddClashApiClient();
             })
             .Build();
         
@@ -78,8 +76,9 @@ public class Program
             await context.Database.MigrateAsync();
         }
 
-        var login = await host.Services.GetService<ClashDevClient>().LoginAsync(new("kayrenhi@gmail.com", "Lkm?acn5iXPR"), CancellationToken.None);
-
+        var client = host.Services.GetRequiredService<ClashApiClient>();
+        var war = await client.GetCurrentWarAsync("#2ggcrc90", CancellationToken.None);
+        
         try
         {
             host.Run();

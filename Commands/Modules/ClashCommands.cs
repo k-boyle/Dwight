@@ -1,21 +1,20 @@
 ﻿using System.Linq;
 using System.Threading.Tasks;
-using ClashWrapper;
-using ClashWrapper.Entities.War;
 using Disqord;
 using Disqord.Bot.Commands.Application;
 using Qmmands;
+using Enumerable = System.Linq.Enumerable;
 
 namespace Dwight;
 
 public class ClashCommands : DiscordApplicationGuildModuleBase
 {
-    private readonly ClashClient _clashClient;
+    private readonly ClashApiClient _clashApiClient;
     private readonly DwightDbContext _dbContext;
 
-    public ClashCommands(ClashClient clashClient, DwightDbContext dbContext)
+    public ClashCommands(ClashApiClient clashApiClient, DwightDbContext dbContext)
     {
-        _clashClient = clashClient;
+        _clashApiClient = clashApiClient;
         _dbContext = dbContext;
     }
 
@@ -27,11 +26,17 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId);
         var clanTag = settings.ClanTag!;
 
-        var members = await _clashClient.GetClanMembersAsync(clanTag);
+        var members = await _clashApiClient.GetClanMembersAsync(clanTag, Context.CancellationToken);
+        if (members == null)
+            return Response("Clan not found");
+
         var orderedByDonation = members.OrderByDescending(member => member.Donations);
 
-        var currentWar = await _clashClient.GetCurrentWarAsync(clanTag);
-        var missedAttackers = currentWar.Clan.Members.Where(member => member.Attacks.Count == 0);
+        var currentWar = await _clashApiClient.GetCurrentWarAsync(clanTag, Context.CancellationToken);
+        if (currentWar == null)
+            return Response("Not in war");
+        
+        var missedAttackers = currentWar.Clan.Members.Where(member => member.Attacks == null || member.Attacks.Length == 0);
 
         var membersDonationsString = string.Join("\n", orderedByDonation.Select((member, index) => $"{index + 1}: {Markdown.Escape(member.Name)} - {member.Donations}"));
         var responseString = $"{Markdown.Bold(Markdown.Underline("Members:"))}\n{membersDonationsString}";
@@ -51,7 +56,10 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
     public async ValueTask<IResult> DiscordCheckAsync()
     {
         var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
-        var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag!);
+        var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
+        if (clanMembers == null)
+            return Response("Clan not found");
+        
         var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
 
         var missingMembers = clanMembers.Where(member => !inClan.Contains(member.Tag));

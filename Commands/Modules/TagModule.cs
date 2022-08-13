@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq;
 using System.Threading.Tasks;
-using ClashWrapper;
 using Disqord;
 using Disqord.Bot.Commands;
 using Disqord.Bot.Commands.Application;
@@ -14,12 +13,12 @@ namespace Dwight;
 [SlashGroup("tag")]
 public partial class TagModule : DiscordApplicationGuildModuleBase
 {
-    private readonly ClashClient _clashClient;
+    private readonly ClashApiClient _clashApiClient;
     private readonly DwightDbContext _dbContext;
 
-    public TagModule(ClashClient clashClient, DwightDbContext dbContext)
+    public TagModule(ClashApiClient clashApiClient, DwightDbContext dbContext)
     {
-        _clashClient = clashClient;
+        _clashApiClient = clashApiClient;
         _dbContext = dbContext;
     }
     
@@ -30,12 +29,12 @@ public partial class TagModule : DiscordApplicationGuildModuleBase
     public async ValueTask<IResult> AddAltAsync(IMember member, string tag)
     {
         var guildId = Context.GuildId;
-        
-        tag = tag.ToUpper();
-
         var settings = await _dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
 
-        var clashMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag!);
+        var clashMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
+        if (clashMembers == null)
+            return Response("Clan not found");
+        
         var clashMember = clashMembers.FirstOrDefault(member => member.Tag.Equals(tag, StringComparison.CurrentCultureIgnoreCase));
 
         if (clashMember == null)
@@ -64,8 +63,6 @@ public partial class TagModule : DiscordApplicationGuildModuleBase
     [Description("Removes the given player tag from the member")]
     public async ValueTask<IResult> RemoveAltAsync(IMember member, string tag)
     {
-        tag = tag.ToUpper();
-
         var clashMember = await _dbContext.Members.FindAsync(Context.GuildId.RawValue, member.Id.RawValue);
         if (clashMember == null)
             return Response($"{member.Mention} has not been verified");
@@ -89,17 +86,19 @@ public partial class TagModule : DiscordApplicationGuildModuleBase
     [SlashCommand("set")]
     [RequireAuthorPermissions(Permissions.ManageRoles)]
     [RequireBotPermissions(Permissions.ManageNicks)]
+    [RequireClanTag]
     [Description("Sets the main account of the member")]
     public async ValueTask<IResult> SetMainAsync(IMember member, string tag)
     {
-        tag = tag.ToUpper();
-        
         var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
         if (settings.ClanTag == null)
             return Response("Clan tag has not been set for this guild");
         
-        var clanMembers = await _clashClient.GetClanMembersAsync(settings.ClanTag);
-        var clanMember = clanMembers.FirstOrDefault(member => member.Tag.Equals(tag));
+        var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag, Context.CancellationToken);
+        if (clanMembers == null)
+            return Response("Clan not found");
+        
+        var clanMember = clanMembers.FirstOrDefault(member => member.Tag.Equals(tag, StringComparison.CurrentCultureIgnoreCase));
 
         if (clanMember == null)
             return Response($"{tag} is not in the clan");
