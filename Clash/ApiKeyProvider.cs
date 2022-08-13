@@ -32,7 +32,7 @@ public class ApiKeyProvider
         try
         {
             await _semaphoreSlim.WaitAsync(cancellationToken);
-            return await GetTokenAsyncInternal(cancellationToken);
+            return await GetTokenAsyncInternal(allowCache, cancellationToken);
         }
         catch (Exception exception)
         {
@@ -45,9 +45,9 @@ public class ApiKeyProvider
         }
     }
 
-    private async Task<string> GetTokenAsyncInternal(CancellationToken cancellationToken)
+    private async Task<string> GetTokenAsyncInternal(bool allowCache, CancellationToken cancellationToken)
     {
-        if (_currentKey != null)
+        if (allowCache && _currentKey != null)
             return _currentKey;
 
         _logger.LogInformation("Getting new token for api");
