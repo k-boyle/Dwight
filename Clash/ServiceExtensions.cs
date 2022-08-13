@@ -20,6 +20,6 @@ public static class ServiceExtensions
             .AddHttpMessageHandler<ApiKeyProviderHandler>();
 
         return collection.AddSingleton<ApiKeyProvider>()
-            .AddSingleton<ApiKeyProviderHandler>();
+            .AddTransient<ApiKeyProviderHandler>();
     }
 }
