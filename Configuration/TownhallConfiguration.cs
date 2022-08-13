@@ -4,5 +4,5 @@ namespace Dwight;
 
 public class TownhallConfiguration
 {
-    public Dictionary<string, string> BaseLinkByLevel { get; set; }
+    public Dictionary<string, string> BaseLinkByLevel { get; set; } = null!;
 }

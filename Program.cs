@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Threading;
 using System.Threading.Tasks;
 using Disqord.Bot.Hosting;
 using Microsoft.EntityFrameworkCore;
@@ -75,9 +74,6 @@ public class Program
             var context = services.GetDwightDbContext();
             await context.Database.MigrateAsync();
         }
-
-        var client = host.Services.GetRequiredService<ClashApiClient>();
-        var war = await client.GetCurrentWarAsync("#2ggcrc90", CancellationToken.None);
         
         try
         {

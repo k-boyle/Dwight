@@ -9,7 +9,7 @@ public class ApiFailure : Exception
     public string Reason { get; }
 
     [JsonProperty("message")]
-    public string Message { get; }
+    public new string Message { get; }
 
     [JsonProperty("type")]
     public string Type { get; }

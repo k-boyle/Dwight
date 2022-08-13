@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -22,47 +21,36 @@ public class ClashApiClient
 
     public async Task<IReadOnlyCollection<ClanMember>?> GetClanMembersAsync(string clanTag, CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Getting clan members for {ClanTag}", clanTag);
-
-        var endpoint = $"/v1/clans/{Uri.EscapeDataString(clanTag)}/members";
-        using var response = await _httpClient.GetAsync(endpoint, cancellationToken);
-        var content = await response.Content.ReadAsStringAsync(cancellationToken);
-        
-        if (response.StatusCode == HttpStatusCode.NotFound)
-            return null;
-        
-        if (!response.IsSuccessStatusCode)
-        {
-            var failure = JsonConvert.DeserializeObject<ApiFailure>(content)!;
-            _logger.LogError(failure, "Error whilst fetching clan member for {ClanTag}", clanTag);
-            throw failure;
-        }
-
-        var model = new
-        {
-            items = Array.Empty<ClanMember>()
-        };
-
-        return JsonConvert.DeserializeAnonymousType(content, model)!.items;
+        var clanMembers = await GetAsync(Endpoints.GetClanMembers.With(clanTag), cancellationToken);
+        return clanMembers?.Items;
     }
 
-    public async Task<CurrentWar?> GetCurrentWarAsync(string clanTag, CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Getting current war for {ClanTag}", clanTag);
+    public Task<CurrentWar?> GetCurrentWarAsync(string clanTag, CancellationToken cancellationToken)
+        => GetAsync(Endpoints.GetCurrentWar.With(clanTag), cancellationToken);
 
-        var endpoint = $"/v1/clans/{Uri.EscapeDataString(clanTag)}/currentwar";
-        using var response = await _httpClient.GetAsync(endpoint, cancellationToken);
-        var content = await response.Content.ReadAsStringAsync(cancellationToken);
-        
+    public Task<LeagueGroup?> GetLeagueGroupAsync(string clanTag, CancellationToken cancellationToken)
+        => GetAsync(Endpoints.GetLeagueGroup.With(clanTag), cancellationToken);
+
+    public Task<CurrentWar?> GetLeagueWarAsync(string warTag, CancellationToken cancellationToken)
+        => GetAsync(Endpoints.GetLeagueWar.With(warTag), cancellationToken);
+
+    private async Task<T?> GetAsync<T>(Endpoint<T> endpoint, CancellationToken cancellationToken) where T : class
+    {
+        _logger.LogInformation("Executing {Endpoint} with {Parameter}", endpoint.PathTemplate, endpoint.Parameter);
+
+        var fullPath = endpoint.Format();
+        using var response = await _httpClient.GetAsync(fullPath, cancellationToken);
+
         if (response.StatusCode == HttpStatusCode.NotFound)
             return null;
 
+        var content = await response.Content.ReadAsStringAsync(cancellationToken);
         if (response.IsSuccessStatusCode)
-            return JsonConvert.DeserializeObject<CurrentWar>(content);
+            return JsonConvert.DeserializeObject<T>(content);
 
         var failure = JsonConvert.DeserializeObject<ApiFailure>(content)!;
-        _logger.LogError(failure, "Error whilst fetching current war for {ClanTag}", clanTag);
-        throw failure;
+        _logger.LogError(failure, "Error executing {Endpoint} with {Parameter}", endpoint.PathTemplate, endpoint.Parameter);
 
+        throw failure;
     }
 }

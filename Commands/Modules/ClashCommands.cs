@@ -3,7 +3,6 @@ using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot.Commands.Application;
 using Qmmands;
-using Enumerable = System.Linq.Enumerable;
 
 namespace Dwight;
 
@@ -41,7 +40,7 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         var membersDonationsString = string.Join("\n", orderedByDonation.Select((member, index) => $"{index + 1}: {Markdown.Escape(member.Name)} - {member.Donations}"));
         var responseString = $"{Markdown.Bold(Markdown.Underline("Members:"))}\n{membersDonationsString}";
 
-        if (currentWar.State == WarState.Ended)
+        if (currentWar.State == WarState.WarEnded)
         {
             var missedAttacksString = string.Join("\n", missedAttackers.Select(member => Markdown.Escape(member.Name)));
             responseString = $"{responseString}\n\n{Markdown.Bold(Markdown.Underline("Missed Attackers:"))}\n{missedAttacksString}";

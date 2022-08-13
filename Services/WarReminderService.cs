@@ -1,12 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using ClashWrapper;
-using ClashWrapper.Models.League;
 using Disqord;
 using Disqord.Bot.Hosting;
 using Disqord.Gateway;
@@ -17,21 +14,18 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
-using CurrentWar = ClashWrapper.Entities.War.CurrentWar;
-using WarClan = ClashWrapper.Entities.War.WarClan;
-
 namespace Dwight;
 
 public class WarReminderService : DiscordBotService
 {
     private readonly PollingConfiguration _pollingConfiguration;
-    private readonly ClashClient _clashClient;
+    private readonly ClashApiClient _clashApiClient;
     private readonly HttpClient _httpClient;
 
-    public WarReminderService(IOptions<PollingConfiguration> pollingConfiguration, ClashClient clashClient, HttpClient httpClient)
+    public WarReminderService(IOptions<PollingConfiguration> pollingConfiguration, ClashApiClient clashApiClient, HttpClient httpClient)
     {
         _pollingConfiguration = pollingConfiguration.Value;
-        _clashClient = clashClient;
+        _clashApiClient = clashApiClient;
         _httpClient = httpClient;
     }
 
@@ -77,7 +71,7 @@ public class WarReminderService : DiscordBotService
                 continue;
             }
 
-            var currentWar = await GetCurrentWarAsync(settings);
+            var currentWar = await GetCurrentWarAsync(settings, cancellationToken);
             if (currentWar == null)
             {
                 Logger.LogInformation("{ClanTag} is currently not in war", clanTag);
@@ -107,7 +101,7 @@ public class WarReminderService : DiscordBotService
 
             switch (currentWar.State)
             {
-                case ClashWrapper.Entities.War.WarState.Preparation when !currentReminder.DeclaredPosted:
+                case WarState.Preparation when !currentReminder.DeclaredPosted:
                 {
                     // todo add role
                     var resultUri = $"https://points.fwa.farm/result.php?clan={clanTag.Replace("#", "")}";
@@ -141,7 +135,7 @@ public class WarReminderService : DiscordBotService
                     break;
                 }
 
-                case ClashWrapper.Entities.War.WarState.InWar:
+                case WarState.InWar:
                 {
                     if (!currentReminder.StartedPosted)
                     {
@@ -164,7 +158,7 @@ public class WarReminderService : DiscordBotService
                         {
                             Logger.LogInformation("Posting cwl attack reminders for {ClanTag}", clanTag);
 
-                            var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks.Count == 0)
+                            var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks is { Length: 0 })
                                 .Select(member => member.Tag)
                                 .ToHashSet();
 
@@ -187,7 +181,7 @@ public class WarReminderService : DiscordBotService
                         {
                             Logger.LogInformation("Posting attack reminders for {ClanTag}", clanTag);
 
-                            var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks.Count < (currentWar.Cwl ? 1 : 2))
+                            var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks != null && member.Attacks.Length < (currentWar.Cwl ? 1 : 2))
                                 .Where(member => currentWar.Cwl || !currentWar.Cwl && Remind(settings, member.Tag))
                                 .Select(member => member.Tag)
                                 .ToHashSet();
@@ -225,27 +219,27 @@ public class WarReminderService : DiscordBotService
             await context.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<CurrentWarData?> GetCurrentWarAsync(GuildSettings settings)
+    private async Task<CurrentWarData?> GetCurrentWarAsync(GuildSettings settings, CancellationToken cancellationToken)
     {
         var clanTag = settings.ClanTag!;
-        var currentWar = await _clashClient.GetCurrentWarAsync(clanTag!);
-        if (currentWar.State is ClashWrapper.Entities.War.WarState.InWar or ClashWrapper.Entities.War.WarState.Preparation)
+        var currentWar = await _clashApiClient.GetCurrentWarAsync(clanTag!, cancellationToken);
+        if (currentWar is { State: WarState.InWar or WarState.Preparation })
             return new(currentWar.State, currentWar.EndTime, currentWar.Clan, currentWar.Opponent, false);
 
         Logger.LogInformation("{ClanTag} is not currently in a normal war, checking for CWL", clanTag);
 
-        var group = await _clashClient.GetLeagueGroupAsync(clanTag);
+        var group = await _clashApiClient.GetLeagueGroupAsync(clanTag, cancellationToken);
         if (group == null)
             return null;
 
-        if (group.State == State.InWar)
-            return await GetCurrentWarAsync(group.Rounds, group.Rounds.Count - 1, 0, clanTag);
+        if (group.State == LeagueState.InWar)
+            return await GetCurrentWarAsync(group.Rounds, group.Rounds.Length - 1, 0, clanTag, cancellationToken);
 
         Logger.LogInformation("{ClanTag} is not currently in CWL", clanTag);
         return null;
     }
 
-    private async Task<CurrentWarData?> GetCurrentWarAsync(List<Round> rounds, int round, int tag, string clanTag)
+    private async Task<CurrentWarData?> GetCurrentWarAsync(LeagueRound[] rounds, int round, int tag, string clanTag, CancellationToken cancellationToken)
     {
         // thanks clash api
         while (round != -1 && tag != 4)
@@ -255,8 +249,15 @@ public class WarReminderService : DiscordBotService
             var currentRound = rounds[round];
             var currentTag = currentRound.WarTags[tag];
 
-            var currentWar = await _clashClient.GetLeagueWarAsync(currentTag);
-            if (currentWar.State != ClashWrapper.Entities.War.WarState.InWar)
+            var currentWar = await _clashApiClient.GetLeagueWarAsync(currentTag, cancellationToken);
+
+            if (currentWar == null)
+            {
+                Logger.LogError("Unexpected null war for {ClanTag}", clanTag);
+                return null;
+            }
+            
+            if (currentWar.State != WarState.InWar)
             {
                 round--;
                 tag = 0;
@@ -273,7 +274,7 @@ public class WarReminderService : DiscordBotService
         return null;
     }
 
-    private static CurrentWarData? GetCurrentCwlWarData(ClashWrapper.Entities.War.CurrentWar currentWar, string clanTag)
+    private static CurrentWarData? GetCurrentCwlWarData(CurrentWar currentWar, string clanTag)
     {
         // thanks clash api
         if (currentWar.Clan.Tag == clanTag)
@@ -285,7 +286,7 @@ public class WarReminderService : DiscordBotService
         return null;
     }
 
-    private record CurrentWarData(ClashWrapper.Entities.War.WarState State, DateTimeOffset EndTime, ClashWrapper.Entities.War.WarClan Clan, ClashWrapper.Entities.War.WarClan Opponent, bool Cwl);
+    private record CurrentWarData(WarState State, DateTimeOffset EndTime, WarClan Clan, WarClan Opponent, bool Cwl);
 
     private static bool Remind(GuildSettings settings, string tag)
     {

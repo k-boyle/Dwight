@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
-using ClashWrapper.Entities.ClanMembers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -9,8 +8,8 @@ namespace Dwight;
 
 public class DwightDbContext : DbContext
 {
-    public DbSet<ClashMember> Members { get; set; }
-    public DbSet<GuildSettings> GuildSettings { get; set; }
+    public DbSet<ClashMember> Members { get; set; } = null!;
+    public DbSet<GuildSettings> GuildSettings { get; set; } = null!;
 
     public DwightDbContext(DbContextOptions<DwightDbContext> options) : base(options)
     {

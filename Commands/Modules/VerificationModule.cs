@@ -2,8 +2,6 @@
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using ClashWrapper;
-using ClashWrapper.Entities.ClanMembers;
 using Disqord;
 using Disqord.Bot.Commands;
 using Disqord.Bot.Commands.Application;
@@ -46,7 +44,9 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
                 return Response($"Identity theft is not a joke, {Context.Author.Mention}");
         }
 
-        var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!);
+        var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
+        if (clanMembers == null)
+            return Response("Clan not found");
 
         var clanMember = clanMembers.FirstOrDefault(member => member.Tag.Equals(userTag, StringComparison.CurrentCultureIgnoreCase));
 
@@ -84,7 +84,7 @@ To get reminders to attack in war execute the /reminders command"
         var roleId = clanMember.Role switch
         {
             ClanRole.CoLeader => settings.CoLeaderRoleId,
-            ClanRole.Elder => settings.ElderRoleId,
+            ClanRole.Admin => settings.ElderRoleId,
             _ => 0UL
         };
 

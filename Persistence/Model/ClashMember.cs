@@ -1,6 +1,4 @@
-﻿using ClashWrapper.Entities.ClanMembers;
-
-namespace Dwight;
+﻿namespace Dwight;
 
 public class ClashMember
 {
@@ -19,11 +17,5 @@ public class ClashMember
         MainTag = mainTag;
         Role = role;
         Remind = remind;
-    }
-
-    public ClashMember(ulong guildId, ulong discordId)
-    {
-        GuildId = guildId;
-        DiscordId = discordId;
     }
 }
