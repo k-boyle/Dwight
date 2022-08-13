@@ -191,7 +191,10 @@ public class WarReminderService : DiscordBotService
                                 .ToHashSet();
 
                             if (missedAttacks.Count == 0)
+                            {
+                                Logger.LogInformation("No missed attacks for {ClanTag}", clanTag);
                                 continue;
+                            }
 
                             var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
                             var mentions = string.Join(", ", inDiscord.Select(member => Mention.User(member.DiscordId)));

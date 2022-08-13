@@ -74,7 +74,12 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
 
         if (guild.GetChannel(settings.GeneralChannelId) is ITextChannel generalChannel)
             await generalChannel.SendMessageAsync(new()
-                { Content = $"{member.Mention} welcome to Hotel {guild.Name}. Check-in time is now. Check-out time is never. \nYou better learn the rules. If you don't, you'll be eaten in your sleep" });
+            {
+                Content = $@"{member.Mention} welcome to Hotel {guild.Name}. Check-in time is now. Check-out time is never.
+You better learn the rules. If you don't, you'll be eaten in your sleep
+
+To get reminders to attack in war execute the /reminders command"
+            });
 
         var roleId = clanMember.Role switch
         {
@@ -105,7 +110,7 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
         var group = match.Groups["tag"];
         var tag = group.Value;
         var member = await Context.Bot.FetchMemberAsync(Context.GuildId, message.Author.Id);
-        
+
         return await VerifyAsync(member!, tag);
     }
 
