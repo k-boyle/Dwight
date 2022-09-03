@@ -4,5 +4,6 @@ public enum WarState
 {
     Preparation,
     InWar,
-    WarEnded
+    WarEnded,
+    NotInWar
 }
