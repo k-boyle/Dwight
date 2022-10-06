@@ -31,19 +31,21 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 
         var orderedByDonation = members.OrderByDescending(member => member.Donations);
 
-        var currentWar = await _clashApiClient.GetCurrentWarAsync(clanTag, Context.CancellationToken);
-        if (currentWar == null)
-            return Response("Not in war");
-        
-        var missedAttackers = currentWar.Clan.Members.Where(member => member.Attacks == null || member.Attacks.Length == 0);
-
-        var membersDonationsString = string.Join("\n", orderedByDonation.Select((member, index) => $"{index + 1}: {Markdown.Escape(member.Name)} - {member.Donations}"));
+        var membersDonationsString =
+            string.Join("\n", orderedByDonation.Select((member, index) => $"{index + 1}: {Markdown.Escape(member.Name)} - {member.Donations}"));
         var responseString = $"{Markdown.Bold(Markdown.Underline("Members:"))}\n{membersDonationsString}";
 
-        if (currentWar.State == WarState.WarEnded)
+        var currentWar = await _clashApiClient.GetCurrentWarAsync(clanTag, Context.CancellationToken);
+        if (currentWar != null && currentWar.State != WarState.NotInWar)
         {
-            var missedAttacksString = string.Join("\n", missedAttackers.Select(member => Markdown.Escape(member.Name)));
-            responseString = $"{responseString}\n\n{Markdown.Bold(Markdown.Underline("Missed Attackers:"))}\n{missedAttacksString}";
+
+            var missedAttackers = currentWar.Clan.Members.Where(member => member.Attacks == null || member.Attacks.Length == 0);
+
+            if (currentWar.State == WarState.WarEnded)
+            {
+                var missedAttacksString = string.Join("\n", missedAttackers.Select(member => Markdown.Escape(member.Name)));
+                responseString = $"{responseString}\n\n{Markdown.Bold(Markdown.Underline("Missed Attackers:"))}\n{missedAttacksString}";
+            }
         }
 
         return Response(responseString);
@@ -58,13 +60,15 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
         if (clanMembers == null)
             return Response("Clan not found");
-        
+
         var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
 
         var missingMembers = clanMembers.Where(member => !inClan.Contains(member.Tag));
         var missingList = string.Join('\n', missingMembers.Select(x => $"{x.Name}{x.Tag}"));
 
-        return Response(string.IsNullOrWhiteSpace(missingList) ? "Why are all these people here? There's too many people on this earth. We need a new plague" : missingList);
+        return Response(string.IsNullOrWhiteSpace(missingList)
+            ? "Why are all these people here? There's too many people on this earth. We need a new plague"
+            : missingList);
     }
 
     [SlashCommand("reminders")]
