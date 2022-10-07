@@ -154,59 +154,65 @@ public class WarReminderService : DiscordBotService
                     else
                     {
                         var endsIn = currentWar.EndTime - DateTimeOffset.UtcNow;
-                        if (currentWar.Cwl && !currentReminder.CwlReminderPosted && endsIn < TimeSpan.FromHours(4))
+                        switch (currentWar.Cwl)
                         {
-                            Logger.LogInformation("Posting cwl attack reminders for {ClanTag}", clanTag);
-
-                            var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks is { Length: 0 })
-                                .Select(member => member.Tag)
-                                .ToHashSet();
-
-                            if (missedAttacks.Count == 0)
-                                continue;
-
-                            var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
-                            var mentions = string.Join(", ", inDiscord.Select(member => Mention.User(member.DiscordId)));
-
-                            var message = new LocalMessage
+                            case true when endsIn < TimeSpan.FromHours(4) && currentReminder.CwlRemindersPosted < 4 && (currentReminder.CwlRemindersPosted == 0 || currentReminder.CwlReminderLastPosted != endsIn.Hours):
                             {
-                                Content = $"War ends in {endsIn.Hours} hours,\n{mentions}\n\nYou still need to attack!"
-                            };
-                            await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
+                                Logger.LogInformation("Posting cwl attack reminders for {ClanTag}", clanTag);
 
-                            currentReminder.CwlReminderPosted = true;
-                            save = true;
-                        }
-                        else if (!currentReminder.ReminderPosted && endsIn < TimeSpan.FromHours(1))
-                        {
-                            Logger.LogInformation("Posting attack reminders for {ClanTag}", clanTag);
+                                var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks == null)
+                                    .Select(member => member.Tag)
+                                    .ToHashSet();
 
-                            var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks != null && member.Attacks.Length < (currentWar.Cwl ? 1 : 2))
-                                .Where(member => currentWar.Cwl || !currentWar.Cwl && Remind(settings, member.Tag))
-                                .Select(member => member.Tag)
-                                .ToHashSet();
+                                if (missedAttacks.Count == 0)
+                                    continue;
 
-                            if (missedAttacks.Count == 0)
+                                var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
+                                var mentions = string.Join(", ", inDiscord.Select(member => Mention.User(member.DiscordId)));
+
+                                var message = new LocalMessage
+                                {
+                                    Content = $"War ends in {endsIn.Hours + 1} hour(s),\n{mentions}\n\nYou still need to attack!"
+                                };
+                                await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
+
+                                currentReminder.CwlRemindersPosted++;
+                                currentReminder.CwlReminderLastPosted = endsIn.Hours;
+                                save = true;
+                                break;
+                            }
+                            case false when !currentReminder.ReminderPosted && endsIn < TimeSpan.FromHours(1):
                             {
-                                Logger.LogInformation("No missed attacks for {ClanTag}", clanTag);
-                                continue;
+                                Logger.LogInformation("Posting attack reminders for {ClanTag}", clanTag);
+
+                                var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks != null && member.Attacks.Length < 2)
+                                    .Where(member => Remind(settings, member.Tag))
+                                    .Select(member => member.Tag)
+                                    .ToHashSet();
+
+                                if (missedAttacks.Count == 0)
+                                {
+                                    Logger.LogInformation("No missed attacks for {ClanTag}", clanTag);
+                                    continue;
+                                }
+
+                                var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
+                                var mentions = string.Join(", ", inDiscord.Select(member => Mention.User(member.DiscordId)));
+
+                                var message = new LocalMessage
+                                {
+                                    Content = $"War ends soon! \n{mentions}\n\nYou still need to attack!"
+                                };
+                                await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
+
+                                currentReminder.ReminderPosted = true;
+                                save = true;
+                                break;
                             }
 
-                            var inDiscord = settings.Members.Where(member => member.Tags.Any(tag => missedAttacks.Contains(tag)));
-                            var mentions = string.Join(", ", inDiscord.Select(member => Mention.User(member.DiscordId)));
-
-                            var message = new LocalMessage
-                            {
-                                Content = $"War ends soon! \n{mentions}\n\nYou still need to attack!"
-                            };
-                            await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
-
-                            currentReminder.ReminderPosted = true;
-                            save = true;
-                        }
-                        else
-                        {
-                            Logger.LogInformation("Nothing to post for {ClanTag}", clanTag);
+                            default:
+                                Logger.LogInformation("Nothing to post for {ClanTag}", clanTag);
+                                break;
                         }
                     }
 
@@ -266,7 +272,10 @@ public class WarReminderService : DiscordBotService
 
             var currentWarData = GetCurrentCwlWarData(currentWar, clanTag);
             if (currentWarData != null)
+            {
+                Logger.LogInformation("Found CWL for {ClanTag}", clanTag);
                 return currentWarData;
+            }
 
             tag++;
         }
