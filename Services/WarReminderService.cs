@@ -185,7 +185,7 @@ public class WarReminderService : DiscordBotService
                             {
                                 Logger.LogInformation("Posting attack reminders for {ClanTag}", clanTag);
 
-                                var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks != null && member.Attacks.Length < 2)
+                                var missedAttacks = currentWar.Clan.Members.Where(member => member.Attacks is null or { Length: < 2 })
                                     .Where(member => Remind(settings, member.Tag))
                                     .Select(member => member.Tag)
                                     .ToHashSet();
