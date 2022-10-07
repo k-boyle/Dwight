@@ -125,4 +125,42 @@ public partial class TagModule : DiscordApplicationGuildModuleBase
 
         return Response($"Set main of {member.Mention}");
     }
+
+    [SlashCommand("whomst")]
+    [Description("Looks up who in the clan owns the given player tag")]
+    [RequireClanTag]
+    public async ValueTask<IResult> WhomstAsync(string name)
+    {
+        var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
+
+        var clashMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
+        var foundMembers = clashMembers!.Where(member => member.Name.Equals(name, StringComparison.InvariantCultureIgnoreCase))
+            .Select(member => member.Tag)
+            .ToHashSet();
+
+        if (foundMembers.Count == 0)
+            return Response($"No members could be found by the name {name}");
+
+        var clanMembers = settings.Members.Where(member => member.Tags.Any(foundMembers.Contains))
+            .Select(member => member.DiscordId)
+            .ToList();
+
+        if (clanMembers.Count == 0)
+            return Response($"No members in the discord own {name}");
+
+        var response = clanMembers.Select(id => $"{name} belongs to {Mention.User(id)}");
+        return Response(string.Join('\n', response));
+    }
+
+    [SlashCommand("list")]
+    [Description("Lists the tags a member has")]
+    [RequireClanTag]
+    public async ValueTask<IResult> ListTagsAsync(IMember member)
+    {
+        var clashMember = await _dbContext.Members.FindAsync(Context.GuildId.RawValue, member.Id.RawValue);
+        if (clashMember == null)
+            return Response($"{member.Mention} does not have an account verified in the clan");
+
+        return Response(string.Join(' ', clashMember.Tags));
+    }
 }

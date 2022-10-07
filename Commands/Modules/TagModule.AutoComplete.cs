@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Disqord.Bot.Commands.Application;
 
@@ -10,7 +11,7 @@ public partial class TagModule
     public async ValueTask AddAltAsync(AutoComplete<string> tag)
     {
         var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
-        
+
         if (tag.IsFocused)
         {
             var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
@@ -49,5 +50,24 @@ public partial class TagModule
             return;
 
         tag.Choices!.AddRange(clashMember.Tags);
+    }
+
+    [AutoComplete("whomst")]
+    public async ValueTask WhomstAsync(AutoComplete<string> name)
+    {
+        if (!name.IsFocused || name.RawArgument == null || name.RawArgument.Length == 0)
+            return;
+
+        var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId);
+
+        var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
+        if (clanMembers == null)
+            return;
+
+        var potentialMembers = clanMembers.Select(member => member.Name)
+            .Where(memberName => memberName.StartsWith(name.RawArgument, StringComparison.InvariantCultureIgnoreCase))
+            .Take(25);
+        
+        name.Choices.AddRange(potentialMembers);
     }
 }
