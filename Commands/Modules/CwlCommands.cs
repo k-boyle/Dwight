@@ -32,7 +32,7 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
     [SlashCommand("update")]
     [RequireAuthorPermissions(Permissions.Administrator)]
     [Description("Update the cwl spreadsheet")]
-    [RateLimit(1, 5, RateLimitMeasure.Minutes, RateLimitBucketType.Guild)]
+    // [RateLimit(1, 5, RateLimitMeasure.Minutes, RateLimitBucketType.Guild)]
     public async ValueTask<IResult> UpdateSpreadsheetAsync()
     {
         var settings = await _dwightDbContext.GetOrCreateSettingsAsync(Context.GuildId);
@@ -65,8 +65,8 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
             return (IList<object>) playerRow;
         }).ToList();
         var titleRow = rows[0];
-        titleRow.Insert(0, "Name");
-        titleRow.Insert(1, "Current Opted State");
+        titleRow[0] = "Name";
+        titleRow[1] = "Current Opted State";
         
         foreach (var (tag, index) in memberIndexes)
         {
@@ -75,8 +75,8 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
                 return Response($"{tag} was in the weights but not in the clan");
 
             var playerRow = rows[1 + index];
-            playerRow.Insert(0, player.Name);
-            playerRow.Insert(1, player.WarPreference.ToString());
+            playerRow[0] = player.Name;
+            playerRow[1] = player.WarPreference.ToString();
         }
 
         for (int r = 0, warIndex = 0; r < group.Rounds.Length; r++, warIndex++)
@@ -95,7 +95,7 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
                     continue;
 
                 var (clan, opponent) = clans.Value;
-                titleRow.Insert(2 + warIndex, opponent.Name);
+                titleRow[2 + warIndex] = opponent.Name;
 
                 if (war.State is WarState.Preparation or WarState.NotInWar)
                 {
@@ -104,7 +104,7 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
                         var playerRow = rows[i];
                         if (playerRow.Count > 0)
                         {
-                            playerRow.Insert(2 + warIndex, "");
+                            playerRow[2 + warIndex] = "";
                         }
                     }
 
@@ -116,13 +116,23 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
                     if (memberIndexes.TryGetValue(member.Tag, out var index))
                     {
                         var playerRow = rows[1 + index];
-                        playerRow.Insert(2 + warIndex, member.Attacks == null ? "Impish" : "Admirable");
+                        playerRow[2 + warIndex] = member.Attacks == null ? "Impish" : "Admirable";
                     }
                     else
                     {
                         throw new("????");
                     }
                 }
+            }
+        }
+        
+        foreach (var row in rows)
+        {
+            var empty = row[0] == null!;
+            for (var i = 0; i < row.Count; i++)
+            {
+                var item = (object?) row[i];
+                row[i] = item ?? (empty ? "" : "Out");
             }
         }
 
