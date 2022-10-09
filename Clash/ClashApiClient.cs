@@ -19,6 +19,9 @@ public class ClashApiClient
         _logger = logger;
     }
 
+    public Task<Player?> GetPlayerAsync(string playerTag, CancellationToken cancellationToken)
+        => GetAsync(Endpoints.GetPlayer.With(playerTag), cancellationToken);
+
     public async Task<IReadOnlyCollection<ClanMember>?> GetClanMembersAsync(string clanTag, CancellationToken cancellationToken)
     {
         var clanMembers = await GetAsync(Endpoints.GetClanMembers.With(clanTag), cancellationToken);

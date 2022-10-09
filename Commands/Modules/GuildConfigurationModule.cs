@@ -139,6 +139,16 @@ public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
             return Response($"Clan tag has been set to {clanTag}");
         }
 
+        [SlashCommand("cwl-sheet-id")]
+        [Description("Sets the cwl sheet id")]
+        public async ValueTask<IResult> SetCwlSheetIdAsync(string cwlSheetId)
+        {
+            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
+            settings.CwlSheetId = cwlSheetId;
+
+            return Response($"Cwl Sheet Id has been set to {cwlSheetId}");
+        }
+
         public override async ValueTask OnAfterExecuted()
         {
             await _dbContext.SaveChangesAsync();
@@ -158,6 +168,14 @@ public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
         {
             var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
             return Response($"Clan tag has been set to \"{settings.ClanTag}\"");
+        }
+
+        [SlashCommand("cwl-sheet-id")]
+        [Description("Views the cwl sheet id")]
+        public async ValueTask<IResult> ViewCwlSheetIdAsync()
+        {
+            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
+            return Response($"Cwl Sheet Id has been set to {settings.CwlSheetId}");
         }
 
         public override async ValueTask OnAfterExecuted()

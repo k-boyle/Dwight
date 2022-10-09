@@ -6,3 +6,4 @@ riderModule.iml
 /config.yml
 .idea
 appsettings.*.json
+gcp.json
