@@ -32,7 +32,7 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
     [SlashCommand("update")]
     [RequireAuthorPermissions(Permissions.Administrator)]
     [Description("Update the cwl spreadsheet")]
-    // [RateLimit(1, 5, RateLimitMeasure.Minutes, RateLimitBucketType.Guild)]
+    [RateLimit(1, 5, RateLimitMeasure.Minutes, RateLimitBucketType.Guild)]
     public async ValueTask<IResult> UpdateSpreadsheetAsync()
     {
         var settings = await _dwightDbContext.GetOrCreateSettingsAsync(Context.GuildId);
