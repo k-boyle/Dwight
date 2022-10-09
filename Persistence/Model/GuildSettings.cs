@@ -32,6 +32,8 @@ public class GuildSettings
     
     [MapCommand(typeof(IRole))]
     public ulong WarRoleId { get; set; }
+    
+    public string? CwlSheetId { get; set; }
 
     public List<ClashMember> Members { get; set; } = new();
 
