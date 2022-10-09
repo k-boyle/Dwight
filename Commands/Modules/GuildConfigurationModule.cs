@@ -24,7 +24,7 @@ public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
 
         foreach (var propertyInfo in properties)
         {
-            var attribute = CustomAttributeExtensions.GetCustomAttribute<MapCommandAttribute>(propertyInfo);
+            var attribute = propertyInfo.GetCustomAttribute<MapCommandAttribute>();
             if (attribute == null)
                 continue;
 
