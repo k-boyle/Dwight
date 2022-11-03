@@ -32,7 +32,7 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
     [SlashCommand("update")]
     [RequireAuthorPermissions(Permissions.Administrator)]
     [Description("Update the cwl spreadsheet")]
-    [RateLimit(1, 5, RateLimitMeasure.Minutes, RateLimitBucketType.Guild)]
+    // [RateLimit(1, 5, RateLimitMeasure.Minutes, RateLimitBucketType.Guild)]
     public async ValueTask<IResult> UpdateSpreadsheetAsync()
     {
         var settings = await _dwightDbContext.GetOrCreateSettingsAsync(Context.GuildId);
@@ -46,7 +46,7 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
         if (group == null)
             return Response("Currently not in CWL");
 
-        await Deferral(true);
+        await Deferral();
 
         var weightPage = await _httpClient.GetAsync($"http://fwastats.com/Clan/{clanTag.Replace("#", "")}/Weight", Context.CancellationToken);
         var content = await weightPage.Content.ReadAsStringAsync(Context.CancellationToken);
@@ -84,6 +84,12 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
             var round = group.Rounds[r];
             foreach (var tag in round.WarTags)
             {
+                if (tag == "#0")
+                {
+                    titleRow[2 + warIndex] = "";
+                    break;
+                }
+
                 var war = await _clashApiClient.GetLeagueWarAsync(tag, Context.CancellationToken);
                 var clans = war!.Clan.Tag == clanTag
                     ? (war.Clan, war.Opponent)
@@ -132,7 +138,7 @@ public class CwlCommands : DiscordApplicationGuildModuleBase
             for (var i = 0; i < row.Count; i++)
             {
                 var item = (object?) row[i];
-                row[i] = item ?? (empty ? "" : "Out");
+                row[i] = item ?? (empty || titleRow[i] == "" ? "" : "Out");
             }
         }
 
