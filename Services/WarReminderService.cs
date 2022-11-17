@@ -115,19 +115,37 @@ public class WarReminderService : DiscordBotService
 
                     var document = new HtmlDocument();
                     document.LoadHtml(body);
+                    
+                    var opponentRegex = new Regex(@"Opponent Clan = (?<name>.*) - \[(?<tag>#\w+)\]", RegexOptions.Compiled | RegexOptions.Multiline);
+                    var clansNode = document.DocumentNode.SelectSingleNode("/html/body/main/div/center[2]/span");
+                    var opponentMatch = opponentRegex.Match(clansNode.InnerText);
+                    if (!opponentMatch.Success)
+                    {
+                        Logger.LogError("Failed to scrape fwa website for opponent");
+                        continue;
+                    }
+
+                    var matchedOpponentTag = opponentMatch.Groups["tag"].Value;
+                    if (matchedOpponentTag != opponentTag)
+                    {
+                        Logger.LogInformation("FWA site has not updated yet");
+                        continue;
+                    }
+
+                    var opponentName = opponentMatch.Groups["name"].Value;
+                    
                     var outcomeRegex = new Regex(@"\w[\w\s]+", RegexOptions.Compiled | RegexOptions.RightToLeft);
                     var outcomeNode = document.DocumentNode.SelectSingleNode("/html/body/main/div/center[3]/span");
-                    var match = outcomeRegex.Match(outcomeNode.InnerText);
-
-                    if (!match.Success)
+                    var outcomeMatch = outcomeRegex.Match(outcomeNode.InnerText);
+                    if (!outcomeMatch.Success)
                     {
-                        Logger.LogError("Failed to scrape fwa website");
+                        Logger.LogError("Failed to scrape fwa website for outcome");
                         continue;
                     }
 
                     var message = new LocalMessage
                     {
-                        Content = $"War has been declared!\n{match.Value}\nGo to {resultUri} to see the breakdown"
+                        Content = $"War has been declared against {opponentName}!\n{outcomeMatch.Value}\nGo to {resultUri} to see the breakdown"
                     };
                     await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
                     currentReminder.DeclaredPosted = true;
