@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Web;
 using Disqord;
 using Disqord.Bot.Hosting;
 using Disqord.Gateway;
@@ -105,7 +106,7 @@ public class WarReminderService : DiscordBotService
                 case WarState.Preparation when !currentReminder.DeclaredPosted:
                 {
                     // todo add role
-                    var resultUri = $"https://points.fwa.farm/result.php?clan={clanTag.Replace("#", "")}";
+                    var resultUri = $"https://fwapoints.chocolateclash.com/clan?tag={clanTag.Replace("#", "")}";
                     var response = await _httpClient.GetAsync(resultUri, cancellationToken);
                     var body = await response.Content.ReadAsStringAsync(cancellationToken);
                     if (!response.IsSuccessStatusCode)
@@ -116,37 +117,35 @@ public class WarReminderService : DiscordBotService
 
                     var document = new HtmlDocument();
                     document.LoadHtml(body);
-                    
-                    var opponentRegex = new Regex(@"Opponent Clan = (?<name>.*) - \[(?<tag>#\w+)\]", RegexOptions.Compiled | RegexOptions.Multiline);
-                    var clansNode = document.DocumentNode.SelectSingleNode("/html/body/main/div/center[2]/span");
-                    var opponentMatch = opponentRegex.Match(clansNode.InnerText);
-                    if (!opponentMatch.Success)
-                    {
-                        Logger.LogError("Failed to scrape fwa website for opponent");
-                        continue;
-                    }
 
-                    var matchedOpponentTag = opponentMatch.Groups["tag"].Value;
-                    if (matchedOpponentTag != opponentTag)
+                    var resultsNode = document.DocumentNode.SelectSingleNode("/html/body/p[3]");
+                    var opponentNode = resultsNode.ChildNodes.ElementAt(6);
+
+                    var matchedOpponentTag = opponentNode.InnerText;
+                    if (!opponentTag.EndsWith(matchedOpponentTag))
                     {
                         Logger.LogInformation("FWA site has not updated yet");
                         continue;
                     }
 
-                    var opponentName = opponentMatch.Groups["name"].Value;
-                    
-                    var outcomeRegex = new Regex(@"\w[\w\s]+", RegexOptions.Compiled | RegexOptions.RightToLeft);
-                    var outcomeNode = document.DocumentNode.SelectSingleNode("/html/body/main/div/center[3]/span");
-                    var outcomeMatch = outcomeRegex.Match(outcomeNode.InnerText);
-                    if (!outcomeMatch.Success)
-                    {
-                        Logger.LogError("Failed to scrape fwa website for outcome");
-                        continue;
-                    }
+                    var hrefRegex = new Regex(@"<a href=""(?<redirect>\/[\w?=]+)"">(?<text>[\w\s#]+)<\/a>", RegexOptions.Compiled);
+                    var linksReplaced = hrefRegex.Replace(resultsNode.InnerHtml,
+                        match => Markdown.Link(match.Groups["text"].Value, $"https://fwapoints.chocolateclash.com{match.Groups["redirect"]}"));
+                    var breaksReplaced = linksReplaced.Replace("<br>", "\n");
+                    var boldRegex = new Regex(@"<b>(?<text>[\w\s]+)<\/b>", RegexOptions.Compiled);
+                    var boldedText = boldRegex.Replace(breaksReplaced, match => Markdown.Bold(match.Groups["text"].Value));
+                    var decoded = HttpUtility.HtmlDecode(boldedText);
 
                     var message = new LocalMessage
                     {
-                        Content = $"War has been declared against {opponentName}!\n{outcomeMatch.Value}\nGo to {resultUri} to see the breakdown"
+                        Embeds = new List<LocalEmbed>
+                        {
+                            new()
+                            {
+                                Description = decoded,
+                                Color = Color.Gold
+                            }
+                        }
                     };
                     await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
                     currentReminder.DeclaredPosted = true;
@@ -199,7 +198,8 @@ public class WarReminderService : DiscordBotService
                             if (missedAttacksByOwner.Count == 0)
                                 continue;
 
-                            var missedAttackMentions = missedAttacksByOwner.Select(missedAttacker => Mention.User(missedAttacker.Key) + GetMembersSuffix(missedAttacker.Value.Item1, missedAttacker.Value.Item2));
+                            var missedAttackMentions = missedAttacksByOwner.Select(missedAttacker
+                                => Mention.User(missedAttacker.Key) + GetMembersSuffix(missedAttacker.Value.Item1, missedAttacker.Value.Item2));
                             var mentions = string.Join(", ", missedAttackMentions);
 
                             var message = new LocalMessage
@@ -239,7 +239,8 @@ public class WarReminderService : DiscordBotService
                             if (missedAttacksByOwner.Count == 0)
                                 continue;
 
-                            var missedAttackMentions = missedAttacksByOwner.Select(missedAttacker => Mention.User(missedAttacker.Key) + GetMembersSuffix(missedAttacker.Value.Item1, missedAttacker.Value.Item2));
+                            var missedAttackMentions = missedAttacksByOwner.Select(missedAttacker
+                                => Mention.User(missedAttacker.Key) + GetMembersSuffix(missedAttacker.Value.Item1, missedAttacker.Value.Item2));
                             var mentions = string.Join(", ", missedAttackMentions);
 
                             var message = new LocalMessage
@@ -303,7 +304,7 @@ public class WarReminderService : DiscordBotService
                 Logger.LogError("Unexpected null war for {ClanTag}", clanTag);
                 return null;
             }
-            
+
             if (currentWar.State != WarState.InWar)
             {
                 round--;
@@ -345,12 +346,12 @@ public class WarReminderService : DiscordBotService
 
     private static bool CwlShouldRemind(CurrentWarData currentWar, TimeSpan endsIn, CurrentWarReminder currentReminder)
     {
-        return currentWar.Cwl 
-            && endsIn < TimeSpan.FromHours(4) 
-            && currentReminder.CwlRemindersPosted < 4 
+        return currentWar.Cwl
+            && endsIn < TimeSpan.FromHours(4)
+            && currentReminder.CwlRemindersPosted < 4
             && (currentReminder.CwlRemindersPosted == 0 || currentReminder.CwlReminderLastPosted != endsIn.Hours);
     }
-    
+
     private static string GetMembersSuffix(ClashMember member, List<WarMember> warMembers)
     {
         if (warMembers.Count > 1)
