@@ -119,10 +119,12 @@ public class WarReminderService : DiscordBotService
                     document.LoadHtml(body);
 
                     var resultsNode = document.DocumentNode.SelectSingleNode("/html/body/p[3]");
-                    var opponentNode = resultsNode.ChildNodes.ElementAt(6);
+                    var firstNode = resultsNode.ChildNodes.ElementAt(6);
+                    var secondNode = resultsNode.ChildNodes.ElementAt(8);
 
-                    var matchedOpponentTag = opponentNode.InnerText;
-                    if (!opponentTag.EndsWith(matchedOpponentTag))
+                    var firstNodeTag = firstNode.InnerText;
+                    var secondNodeTag = secondNode.InnerText;
+                    if (!(opponentTag.EndsWith(firstNodeTag) || opponentTag.EndsWith(secondNodeTag)))
                     {
                         Logger.LogInformation("FWA site has not updated yet");
                         continue;
@@ -132,7 +134,7 @@ public class WarReminderService : DiscordBotService
                     var linksReplaced = hrefRegex.Replace(resultsNode.InnerHtml,
                         match => Markdown.Link(match.Groups["text"].Value, $"https://fwapoints.chocolateclash.com{match.Groups["redirect"]}"));
                     var breaksReplaced = linksReplaced.Replace("<br>", "\n");
-                    var boldRegex = new Regex(@"<b>(?<text>[\w\s]+)<\/b>", RegexOptions.Compiled);
+                    var boldRegex = new Regex(@"<b>(?<text>.+)<\/b>", RegexOptions.Compiled);
                     var boldedText = boldRegex.Replace(breaksReplaced, match => Markdown.Bold(match.Groups["text"].Value));
                     var decoded = HttpUtility.HtmlDecode(boldedText);
 
