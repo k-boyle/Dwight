@@ -15,7 +15,7 @@
 
     <ItemGroup>
         <PackageReference Include="Disqord.Bot" Version="1.0.0-alpha5.58" />
-        <PackageReference Include="Google.Apis.Sheets.v4" Version="1.65.0.3148" />
+        <PackageReference Include="Google.Apis.Sheets.v4" Version="1.66.0.3148" />
         <PackageReference Include="HtmlAgilityPack" Version="1.11.57" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.26">
             <PrivateAssets>all</PrivateAssets>
