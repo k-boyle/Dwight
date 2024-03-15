@@ -111,7 +111,7 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         {
             response.AppendLine(Mention.User(member.DiscordId));
             var altsInClan = clanMembers.Where(clanMember => member.Tags.Any(tag => tag == clanMember.Tag)).ToList();
-            if (altsInClan.Count == 1) continue;
+            if (altsInClan.Count <= 1) continue;
 
             foreach (var (tag, name, _, _) in altsInClan)
             {
