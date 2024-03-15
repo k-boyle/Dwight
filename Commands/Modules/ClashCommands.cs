@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Text;
 using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot.Commands.Application;
@@ -87,5 +88,32 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         }
 
         return Response(remind ? "You will now receive reminders to attack in farm wars" : "You will no longer receive reminders to attack in farm wars");
+    }
+
+    [SlashCommand("alts")]
+    [Description("Lists all of the alts in the clan")]
+    public async Task<IResult> GetAltsAsync()
+    {
+        await Deferral();
+        
+        var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
+        var members = settings.Members;
+
+        var membersWithAlts = members.Where(member => member.Tags.Length > 1);
+
+        var response = new StringBuilder();
+        foreach (var member in membersWithAlts)
+        {
+            response.AppendLine(Mention.User(member.DiscordId));
+            foreach (var tag in member.Tags)
+            {
+                var player = await _clashApiClient.GetPlayerAsync(tag, Context.CancellationToken);
+                response.AppendLine($"- {player?.Name ?? tag}");
+            }
+
+            response.AppendLine();
+        }
+        
+        return Response(response.Length == 0 ? "No one has alts" : response.ToString());
     }
 }
