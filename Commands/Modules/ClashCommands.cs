@@ -108,12 +108,15 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
             foreach (var tag in member.Tags)
             {
                 var player = await _clashApiClient.GetPlayerAsync(tag, Context.CancellationToken);
-                response.AppendLine($"- {player?.Name ?? tag}");
+                response.AppendLine($"- {tag}: {player?.Name ?? "<404>"}");
             }
-
-            response.AppendLine();
         }
-        
-        return Response(response.Length == 0 ? "No one has alts" : response.ToString());
+
+        var messageResponse = new LocalInteractionMessageResponse
+        {
+            AllowedMentions = LocalAllowedMentions.None,
+            Content = response.Length == 0 ? "No one has alts" : response.ToString()
+        };
+        return Response(messageResponse);
     }
 }
