@@ -109,10 +109,10 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 
         foreach (var member in membersWithAlts)
         {
-            response.AppendLine(Mention.User(member.DiscordId));
             var altsInClan = clanMembers.Where(clanMember => member.Tags.Any(tag => tag == clanMember.Tag)).ToList();
             if (altsInClan.Count <= 1) continue;
 
+            response.AppendLine(Mention.User(member.DiscordId));
             foreach (var (tag, name, _, _) in altsInClan)
             {
                 response.AppendLine($"- {tag}: {name}");
