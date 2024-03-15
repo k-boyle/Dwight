@@ -101,14 +101,19 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 
         var membersWithAlts = members.Where(member => member.Tags.Length > 1);
 
+        var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
+        if (clanMembers == null)
+            return Response("Clan not found");
+
         var response = new StringBuilder();
+
         foreach (var member in membersWithAlts)
         {
             response.AppendLine(Mention.User(member.DiscordId));
-            foreach (var tag in member.Tags)
+            var altsInClan = clanMembers.Where(clanMember => member.Tags.Any(tag => tag == clanMember.Tag));
+            foreach (var (tag, name, _, _) in altsInClan)
             {
-                var player = await _clashApiClient.GetPlayerAsync(tag, Context.CancellationToken);
-                response.AppendLine($"- {tag}: {player?.Name ?? "<404>"}");
+                response.AppendLine($"- {tag}: {name}");
             }
         }
 
