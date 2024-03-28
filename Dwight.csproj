@@ -17,12 +17,12 @@
         <PackageReference Include="Disqord.Bot" Version="1.0.0-alpha5.58" />
         <PackageReference Include="Google.Apis.Sheets.v4" Version="1.67.0.3365" />
         <PackageReference Include="HtmlAgilityPack" Version="1.11.60" />
-        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="6.0.28">
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.3">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="6.0.1" />
-        <PackageReference Include="Microsoft.Extensions.Http" Version="6.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+        <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="6.0.22" />
         <PackageReference Include="Serilog.Extensions.Hosting" Version="5.0.1" />
         <PackageReference Include="Serilog.Formatting.Elasticsearch" Version="8.4.1" />
