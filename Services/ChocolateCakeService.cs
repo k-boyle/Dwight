@@ -9,7 +9,7 @@ namespace Dwight;
 
 public class ChocolateCakeService : DiscordBotService
 {
-    private static readonly Regex TAG_REGEX = new(@"#\w{8}", RegexOptions.Compiled);
+    private static readonly Regex TAG_REGEX = new(@"#\w{8,9}", RegexOptions.Compiled);
 
     private readonly ClashApiClient _client;
 
