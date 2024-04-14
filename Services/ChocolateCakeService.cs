@@ -25,6 +25,8 @@ public class ChocolateCakeService : DiscordBotService
 
         var content = message.Content;
         var match = TAG_REGEX.Match(content);
+        if (!match.Success) return;
+        
         var tag = match.Value;
         if (tag[0] != '#')
             tag = $"#{tag}";
