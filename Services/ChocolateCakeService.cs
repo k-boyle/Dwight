@@ -41,7 +41,7 @@ public class ChocolateCakeService : DiscordBotService
         
         if (message.ChannelId != settings.WelcomeChannelId) return;
 
-        var reply = $"https://fwa.chocolateclash.com/cc_n/member.php?tag={tag[1..]}";
+        var reply = $"https://cc.fwafarm.com/cc_n/member.php?tag={tag[1..]}";
 
         await Bot.SendMessageAsync(message.ChannelId, new() { Content = reply });
     }
