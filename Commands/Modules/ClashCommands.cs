@@ -126,4 +126,11 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         };
         return Response(messageResponse);
     }
+
+    [SlashCommand("password")]
+    [Description("Hack the mainframe")]
+    public IResult HackMainframeAsync()
+    {
+        return Response("https://www.reddit.com/r/RedditClanSystem/wiki/official_reddit_clan_system/");
+    }
 }
