@@ -61,8 +61,8 @@ public class WelcomingService : DiscordBotService
             .Append(member.Mention)
             .Append(" welcome to ")
             .Append(guild.Name)
-            .Append("!\nBelow are links to FWA approved bases for all Townhalls. If copied please make sure you check xbows, infernos & skeleton traps 😉\n");
-            
+            .Append("!\nBelow are links to FWA approved bases for all Townhalls.\n");
+
         foreach (var keyValuePair in _townhallConfiguration.BaseLinkByLevel)
         {
             var (level, url) = keyValuePair;
@@ -70,7 +70,15 @@ public class WelcomingService : DiscordBotService
                 .Append(", ");
         }
 
-        description.Append("\nand if you're feeling nice post your in game player tag (e.g. #YRQ2Y0UC) so we know who you are!");
+        var bigDescription = $"""
+                             And if you're feeling nice post your in game player tag (e.g. #YRQ2Y0UC) so we know who you are!
+
+                             If you're already in the clan you can run a self-verify using the /self-verify command, using your in game API token
+                             Settings > More Settings > API Token > Show > Copy
+                             And the {Markdown.Link("RCS Password", "https://www.reddit.com/r/RedditClanSystem/wiki/official_reddit_clan_system/")}
+                             """;
+
+        description.Append(bigDescription);
 
         return new()
         {
