@@ -139,14 +139,13 @@ public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
             return Response($"Clan tag has been set to {clanTag}");
         }
 
-        [SlashCommand("cwl-sheet-id")]
-        [Description("Sets the cwl sheet id")]
-        public async ValueTask<IResult> SetCwlSheetIdAsync(string cwlSheetId)
+        [SlashCommand("password")]
+        [Description("Sets the password")]
+        public async ValueTask<IResult> SetPasswordAsync(string password)
         {
             var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
-            settings.CwlSheetId = cwlSheetId;
-
-            return Response($"Cwl Sheet Id has been set to {cwlSheetId}");
+            settings.Password = password;
+            return Response($"Password has been set to {password}");
         }
 
         public override async ValueTask OnAfterExecuted()
@@ -170,12 +169,12 @@ public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
             return Response($"Clan tag has been set to \"{settings.ClanTag}\"");
         }
 
-        [SlashCommand("cwl-sheet-id")]
-        [Description("Views the cwl sheet id")]
-        public async ValueTask<IResult> ViewCwlSheetIdAsync()
+        [SlashCommand("password")]
+        [Description("Views the password")]
+        public async ValueTask<IResult> ViewPasswordAsync()
         {
             var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
-            return Response($"Cwl Sheet Id has been set to {settings.CwlSheetId}");
+            return Response($"Password has been set to \"{settings.Password}\"");
         }
 
         public override async ValueTask OnAfterExecuted()

@@ -33,6 +33,8 @@ public class GuildSettings
     [MapCommand(typeof(IRole))]
     public ulong WarRoleId { get; set; }
 
+    public string? Password { get; set; }
+
     public List<ClashMember> Members { get; set; } = new();
 
     public CurrentWarReminder? CurrentWarReminder { get; set; }
