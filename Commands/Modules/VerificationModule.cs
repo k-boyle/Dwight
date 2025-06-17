@@ -147,7 +147,11 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
         if (!ephemeral)
             return Response("Member has been verified");
 
-        await Bot.SendMessageAsync(Context.ChannelId, new LocalMessage { Content = $"{Context.Author.Mention} has been verified" });
+        var message = new LocalMessage
+        {
+            Content = $"{Context.Author.Mention} has been verified {Markdown.Link("CC", $"https://cc.fwafarm.com/cc_n/member.php?tag={userTag[1..]}")}"
+        };
+        await Bot.SendMessageAsync(Context.ChannelId, message);
         
         return Response(new LocalInteractionMessageResponse { Content ="You have been verified", IsEphemeral = true});
     }
