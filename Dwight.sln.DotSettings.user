@@ -40,6 +40,7 @@
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=C_003A_005CUsers_005CKieran_005Csource_005Crepos_005CDisqord_005Csrc_005CDisqord_002EBot_005Cbin_005CRelease_005Cnet6_002E0_005Cpublish_005CNewtonsoft_002EJson_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=C_003A_005CUsers_005CKieran_005Csource_005Crepos_005CDisqord_005Csrc_005CDisqord_002EBot_005Cbin_005CRelease_005Cnet6_002E0_005Cpublish_005CQmmands_002Edll/@EntryIndexedValue">True</s:Boolean>
 	<s:Boolean x:Key="/Default/AddReferences/RecentPaths/=C_003A_005CUsers_005CKieran_005Csource_005Crepos_005CDisqord_005Csrc_005CDisqord_002EBot_005Cbin_005CRelease_005Cnet6_002E0_005Cpublish_005CQommon_002Edll/@EntryIndexedValue">True</s:Boolean>
+	<s:String x:Key="/Default/CodeInspection/ExcludedFiles/FilesAndFoldersToSkip2/=7020124F_002D9FFC_002D4AC3_002D8F3D_002DAAB8E0240759_002Ff_003AGoogle_002EApis_002ESheets_002Ev4_002Ecs_002Fl_003A_002E_002E_003F_002E_002E_003F_002E_002E_003FAppData_003FRoaming_003FJetBrains_003FRider2024_002E3_003Fresharper_002Dhost_003FSourcesCache_003F988b35b774ae65c87a4b9f4a5fa577dd8cf631b25eb91ba67d89d72d84a37_003FGoogle_002EApis_002ESheets_002Ev4_002Ecs/@EntryIndexedValue">ForceIncluded</s:String>
 	<s:String x:Key="/Default/Environment/AssemblyExplorer/XmlDocument/@EntryValue">&lt;AssemblyExplorer&gt;&#xD;
   &lt;Assembly Path="C:\Users\kiera\.nuget\packages\disqord\1.0.0-alpha2.9\lib\net6.0\Disqord.dll" /&gt;&#xD;
 &lt;/AssemblyExplorer&gt;</s:String>

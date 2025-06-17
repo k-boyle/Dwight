@@ -1,9 +1,6 @@
 ﻿using System;
-using System.IO;
 using System.Threading.Tasks;
 using Disqord.Bot.Hosting;
-using Google.Apis.Auth.OAuth2;
-using Google.Apis.Sheets.v4;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -55,12 +52,7 @@ public class Program
                     .Configure<TownhallConfiguration>(context.Configuration.GetSection("Clash"))
                     .Configure<PollingConfiguration>(context.Configuration.GetSection("Polling"))
                     .Configure<ClashConfiguration>(context.Configuration.GetSection("Clash"))
-                    .AddClashApiClient()
-                    .AddSingleton<SheetsService>(_ =>
-                    {
-                        var initializer = ServiceAccountCredential.FromServiceAccountData(File.OpenRead("./config/gcp.json"));
-                        return new(new() { HttpClientInitializer = initializer });
-                    });
+                    .AddClashApiClient();
             })
             .Build();
 
