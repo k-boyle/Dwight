@@ -30,6 +30,8 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
     [Description("Verifies the given member with their in game player tag")]
     public async ValueTask<IResult> VerifyAsync(IMember member, string userTag)
     {
+        await Deferral();
+
         userTag = userTag.ToUpper();
 
         var guildId = Context.GuildId;
@@ -75,10 +77,12 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
         if (guild.GetChannel(settings.GeneralChannelId) is ITextChannel generalChannel)
             await generalChannel.SendMessageAsync(new()
             {
-                Content = $@"{member.Mention} welcome to Hotel {guild.Name}. Check-in time is now. Check-out time is never.
-You better learn the rules. If you don't, you'll be eaten in your sleep
+                Content = $"""
+                           {member.Mention} welcome to Hotel {guild.Name}. Check-in time is now. Check-out time is never.
+                           You better learn the rules. If you don't, you'll be eaten in your sleep
 
-To get reminders to attack in war execute the /reminders command"
+                           To get reminders to attack in war execute the /reminders command
+                           """
             });
 
         var roleId = clanMember.Role switch
@@ -88,7 +92,7 @@ To get reminders to attack in war execute the /reminders command"
             _ => 0UL
         };
 
-        if (guild.Roles.TryGetValue(roleId, out _))
+        if (guild.Roles.ContainsKey(roleId))
             await member.GrantRoleAsync(roleId);
 
         return Response("Member has been verified");
@@ -133,5 +137,31 @@ To get reminders to attack in war execute the /reminders command"
             .Select(member => member.Nick ?? member.Name);
 
         return Response($"Unverified members:\n{string.Join('\n', unverifiedMembers)}");
+    }
+
+    [SlashCommand("self-verify")]
+    [Description("Performs self verification, you must be in the clan for this to work")]
+    [RequireClanTag]
+    public async ValueTask<IResult> SelfVerifyAsync(
+        string playerTag,
+        [Description("Fetched from in game settings")] string apiToken, 
+        [Description("The RCS clan password")] string password)
+    {
+        var guildId = Context.GuildId;
+        var guild = Context.Bot.GetGuild(guildId);
+
+        if (guild == null)
+            return Response("Guild not in bot cache, contact your local bot admin");
+
+        var verifiedToken = await _clashApiClient.VerifyTokenAsync(playerTag, new VerifyToken(apiToken), Context.CancellationToken);
+        if (verifiedToken?.Status != "ok")
+            return Response("Failed to verify, token expired or wrong player tag specified");
+
+        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
+        if (!password.Equals(settings.Password, StringComparison.InvariantCultureIgnoreCase))
+            return Response("Incorrect RCS password");
+
+        // inefficient but oh well
+        return await VerifyAsync(Context.Author, playerTag);
     }
 }

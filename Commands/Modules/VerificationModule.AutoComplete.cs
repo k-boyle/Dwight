@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Disqord.Bot.Commands.Application;
 
@@ -17,8 +18,30 @@ public partial class VerificationModule
             if (members == null)
                 return;
 
-            var notInClan = members.Where(member => !inClan.Contains(member.Tag)).Select(member => member.Tag).Take(25);
+            var notInClan = members.Where(member => !inClan.Contains(member.Tag))
+                .Select(member => member.Tag)
+                .Where(tag => userTag.RawArgument == null || tag.Contains(userTag.RawArgument, StringComparison.InvariantCultureIgnoreCase))
+                .Take(25);
             userTag.Choices.AddRange(notInClan);
+        }
+    }
+    
+    [AutoComplete("self-verify")]
+    public async ValueTask SelfVerifyAsync(AutoComplete<string> playerTag)
+    {
+        var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
+        if (playerTag.IsFocused)
+        {
+            var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
+            var members = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
+            if (members == null)
+                return;
+
+            var notInClan = members.Where(member => !inClan.Contains(member.Tag))
+                .Select(member => member.Tag)
+                .Where(tag => playerTag.RawArgument == null || tag.Contains(playerTag.RawArgument, StringComparison.InvariantCultureIgnoreCase))
+                .Take(25);
+            playerTag.Choices.AddRange(notInClan);
         }
     }
 }
