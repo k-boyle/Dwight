@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot.Commands;
@@ -96,26 +95,6 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
             await member.GrantRoleAsync(roleId);
 
         return Response("Member has been verified");
-    }
-
-    [MessageCommand("Verify")]
-    [RequireBotPermissions(Permissions.ManageRoles)]
-    [RequireBotPermissions(Permissions.SetNick)]
-    [RequireAuthorPermissions(Permissions.ManageRoles)]
-    [RequireClanTag]
-    [Description("Verifies the user who posted the message")]
-    public async ValueTask<IResult> VerifyAsync(IMessage message)
-    {
-        var tagRegex = new Regex("(?<tag>#[A-Z0-9]{8})", RegexOptions.Compiled);
-        var match = tagRegex.Match(message.Content);
-        if (!match.Success)
-            return Response(new LocalInteractionMessageResponse { Content = "Failed to find a player tag in the message", IsEphemeral = true });
-
-        var group = match.Groups["tag"];
-        var tag = group.Value;
-        var member = await Context.Bot.FetchMemberAsync(Context.GuildId, message.Author.Id);
-
-        return await VerifyAsync(member!, tag);
     }
 
     [SlashCommand("unverified")]
