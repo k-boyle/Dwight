@@ -28,6 +28,56 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
     [RequireClanTag]
     [Description("Verifies the given member with their in game player tag")]
     public async ValueTask<IResult> VerifyAsync(IMember member, string userTag)
+        => await VerifyAsync(member, userTag, false);
+
+    [SlashCommand("unverified")]
+    [Description("Lists all of the unverified members in the guild")]
+    public async ValueTask<IResult> UnverifiedAsync()
+    {
+        var guildId = Context.GuildId;
+        var guild = Context.Bot.GetGuild(guildId);
+        if (guild == null)
+            return Response("Guild not in bot cache, contact your local bot admin");
+
+        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId);
+
+        if (!guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var role))
+            return Response("Unverified role has not been setup yet");
+
+        var unverifiedMembers = guild.Members.Values
+            .Where(member => member.RoleIds.Contains(role.Id))
+            .Select(member => member.Nick ?? member.Name);
+
+        return Response($"Unverified members:\n{string.Join('\n', unverifiedMembers)}");
+    }
+
+    [SlashCommand("self-verify")]
+    [Description("Performs self verification, you must be in the clan for this to work")]
+    [RequireClanTag]
+    public async ValueTask<IResult> SelfVerifyAsync(
+        string playerTag,
+        [Description("Fetched from in game settings")] string apiToken, 
+        [Description("The RCS clan password")] string password)
+    {
+        var guildId = Context.GuildId;
+        var guild = Context.Bot.GetGuild(guildId);
+
+        if (guild == null)
+            return Response("Guild not in bot cache, contact your local bot admin");
+
+        var verifiedToken = await _clashApiClient.VerifyTokenAsync(playerTag, new VerifyToken(apiToken), Context.CancellationToken);
+        if (verifiedToken?.Status != "ok")
+            return Response("Failed to verify, token expired or wrong player tag specified");
+
+        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
+        if (!password.Equals(settings.Password, StringComparison.InvariantCultureIgnoreCase))
+            return Response("Incorrect RCS password");
+
+        // inefficient but oh well
+        return await VerifyAsync(Context.Author, playerTag, true);
+    }
+
+    private async Task<IResult> VerifyAsync(IMember member, string userTag, bool ephemeral)
     {
         await Deferral();
 
@@ -94,53 +144,11 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
         if (guild.Roles.ContainsKey(roleId))
             await member.GrantRoleAsync(roleId);
 
-        return Response("Member has been verified");
-    }
+        if (!ephemeral)
+            return Response("Member has been verified");
 
-    [SlashCommand("unverified")]
-    [Description("Lists all of the unverified members in the guild")]
-    public async ValueTask<IResult> UnverifiedAsync()
-    {
-        var guildId = Context.GuildId;
-        var guild = Context.Bot.GetGuild(guildId);
-        if (guild == null)
-            return Response("Guild not in bot cache, contact your local bot admin");
-
-        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId);
-
-        if (!guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var role))
-            return Response("Unverified role has not been setup yet");
-
-        var unverifiedMembers = guild.Members.Values
-            .Where(member => member.RoleIds.Contains(role.Id))
-            .Select(member => member.Nick ?? member.Name);
-
-        return Response($"Unverified members:\n{string.Join('\n', unverifiedMembers)}");
-    }
-
-    [SlashCommand("self-verify")]
-    [Description("Performs self verification, you must be in the clan for this to work")]
-    [RequireClanTag]
-    public async ValueTask<IResult> SelfVerifyAsync(
-        string playerTag,
-        [Description("Fetched from in game settings")] string apiToken, 
-        [Description("The RCS clan password")] string password)
-    {
-        var guildId = Context.GuildId;
-        var guild = Context.Bot.GetGuild(guildId);
-
-        if (guild == null)
-            return Response("Guild not in bot cache, contact your local bot admin");
-
-        var verifiedToken = await _clashApiClient.VerifyTokenAsync(playerTag, new VerifyToken(apiToken), Context.CancellationToken);
-        if (verifiedToken?.Status != "ok")
-            return Response("Failed to verify, token expired or wrong player tag specified");
-
-        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
-        if (!password.Equals(settings.Password, StringComparison.InvariantCultureIgnoreCase))
-            return Response("Incorrect RCS password");
-
-        // inefficient but oh well
-        return await VerifyAsync(Context.Author, playerTag);
+        await Bot.SendMessageAsync(Context.ChannelId, new LocalMessage { Content = $"{Context.Author.Mention} has been verified" });
+        
+        return Response(new LocalInteractionMessageResponse { Content ="You have been verified", IsEphemeral = true});
     }
 }
