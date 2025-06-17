@@ -10,7 +10,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
 using Serilog.Debugging;
-using Serilog.Formatting.Elasticsearch;
 
 namespace Dwight;
 
@@ -37,18 +36,7 @@ public class Program
                     SelfLog.Enable(Console.WriteLine);
                 }
 
-                var elastic = config.GetSection("Elastic")!;
-
                 serilog.WriteTo.Console()
-                    .WriteTo.Elasticsearch(new(new Uri(elastic["Host"]))
-                    {
-                        ModifyConnectionSettings = connection => connection.ApiKeyAuthentication(new(elastic["ApiKey"])),
-                        TypeName = null,
-                        InlineFields = true,
-                        CustomFormatter = new ElasticsearchJsonFormatter()
-                    })
-                    .Enrich.WithProperty("app", env.ApplicationName)
-                    .Enrich.WithProperty("env", env.EnvironmentName)
                     .ReadFrom.Configuration(config);
             })
             .ConfigureDiscordBot<DwightBot>((context, bot) =>
