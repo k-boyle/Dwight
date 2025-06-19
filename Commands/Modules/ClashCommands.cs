@@ -18,40 +18,6 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         _dbContext = dbContext;
     }
 
-    [SlashCommand("members")]
-    [RequireClanTag]
-    [Description("Gets the current members in the clan ordered by donations")]
-    public async ValueTask<IResult> ViewMembersAsync()
-    {
-        var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId);
-        var clanTag = settings.ClanTag!;
-
-        var members = await _clashApiClient.GetClanMembersAsync(clanTag, Context.CancellationToken);
-        if (members == null)
-            return Response("Clan not found");
-
-        var orderedByDonation = members.OrderByDescending(member => member.Donations);
-
-        var membersDonationsString =
-            string.Join("\n", orderedByDonation.Select((member, index) => $"{index + 1}: {Markdown.Escape(member.Name)} - {member.Donations}"));
-        var responseString = $"{Markdown.Bold(Markdown.Underline("Members:"))}\n{membersDonationsString}";
-
-        var currentWar = await _clashApiClient.GetCurrentWarAsync(clanTag, Context.CancellationToken);
-        if (currentWar != null && currentWar.State != WarState.NotInWar)
-        {
-
-            var missedAttackers = currentWar.Clan.Members.Where(member => member.Attacks == null || member.Attacks.Length == 0);
-
-            if (currentWar.State == WarState.WarEnded)
-            {
-                var missedAttacksString = string.Join("\n", missedAttackers.Select(member => Markdown.Escape(member.Name)));
-                responseString = $"{responseString}\n\n{Markdown.Bold(Markdown.Underline("Missed Attackers:"))}\n{missedAttacksString}";
-            }
-        }
-
-        return Response(responseString);
-    }
-
     [SlashCommand("discord-check")]
     [RequireClanTag]
     [Description("Finds all the members that are in the clan but not in the Discord")]
