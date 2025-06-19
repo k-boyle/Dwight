@@ -119,7 +119,7 @@ public class WarReminderService : DiscordBotService
                     document.LoadHtml(body);
 
                     var resultsNode = document.DocumentNode.SelectSingleNode("/html/body/p[3]");
-                    var firstNode = resultsNode.ChildNodes.ElementAt(6);
+                    var firstNode = resultsNode!.ChildNodes.ElementAt(6);
                     var secondNode = resultsNode.ChildNodes.ElementAt(8);
 
                     var firstNodeTag = firstNode.InnerText;

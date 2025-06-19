@@ -18,7 +18,7 @@ public class ClassNameEnricher : ILogEventEnricher
 
     public void Enrich(LogEvent logEvent, ILogEventPropertyFactory propertyFactory)
     {
-        var sourceContext = (string) ((ScalarValue) logEvent.Properties["SourceContext"]).Value;
+        var sourceContext = (string) ((ScalarValue) logEvent.Properties["SourceContext"]).Value!;
         var property = this._propertyByClassName.GetOrAdd(sourceContext, CreateFormattedLogEvent);
 
         logEvent.AddOrUpdateProperty(property);
