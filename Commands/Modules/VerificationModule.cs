@@ -6,21 +6,17 @@ using Disqord.Bot.Commands;
 using Disqord.Bot.Commands.Application;
 using Disqord.Gateway;
 using Disqord.Rest;
+using Microsoft.Extensions.Options;
 using Qmmands;
 
 namespace Dwight;
 
-public partial class VerificationModule : DiscordApplicationGuildModuleBase
+public partial class VerificationModule(
+    ClashApiClient clashApiClient,
+    DwightDbContext dbContext,
+    IOptions<TownhallConfiguration> townhallConfiguration)
+    : DiscordApplicationGuildModuleBase
 {
-    private readonly ClashApiClient _clashApiClient;
-    private readonly DwightDbContext _dbContext;
-
-    public VerificationModule(ClashApiClient clashApiClient, DwightDbContext dbContext)
-    {
-        _clashApiClient = clashApiClient;
-        _dbContext = dbContext;
-    }
-
     [SlashCommand("verify")]
     [RequireBotPermissions(Permissions.ManageRoles)]
     [RequireBotPermissions(Permissions.SetNick)]
@@ -28,63 +24,13 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
     [RequireClanTag]
     [Description("Verifies the given member with their in game player tag")]
     public async ValueTask<IResult> VerifyAsync(IMember member, string userTag)
-        => await VerifyAsync(member, userTag, false);
-
-    [SlashCommand("unverified")]
-    [Description("Lists all of the unverified members in the guild")]
-    public async ValueTask<IResult> UnverifiedAsync()
-    {
-        var guildId = Context.GuildId;
-        var guild = Context.Bot.GetGuild(guildId);
-        if (guild == null)
-            return Response("Guild not in bot cache, contact your local bot admin");
-
-        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId);
-
-        if (!guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var role))
-            return Response("Unverified role has not been setup yet");
-
-        var unverifiedMembers = guild.Members.Values
-            .Where(member => member.RoleIds.Contains(role.Id))
-            .Select(member => member.Nick ?? member.Name);
-
-        return Response($"Unverified members:\n{string.Join('\n', unverifiedMembers)}");
-    }
-
-    [SlashCommand("self-verify")]
-    [Description("Performs self verification, you must be in the clan for this to work")]
-    [RequireClanTag]
-    public async ValueTask<IResult> SelfVerifyAsync(
-        string playerTag,
-        [Description("Fetched from in game settings")] string apiToken, 
-        [Description("The RCS clan password")] string password)
-    {
-        var guildId = Context.GuildId;
-        var guild = Context.Bot.GetGuild(guildId);
-
-        if (guild == null)
-            return Response("Guild not in bot cache, contact your local bot admin");
-
-        var verifiedToken = await _clashApiClient.VerifyTokenAsync(playerTag, new VerifyToken(apiToken), Context.CancellationToken);
-        if (verifiedToken?.Status != "ok")
-            return Response("Failed to verify, token expired or wrong player tag specified");
-
-        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
-        if (!password.Equals(settings.Password, StringComparison.InvariantCultureIgnoreCase))
-            return Response("Incorrect RCS password");
-
-        // inefficient but oh well
-        return await VerifyAsync(Context.Author, playerTag, true);
-    }
-
-    private async Task<IResult> VerifyAsync(IMember member, string userTag, bool ephemeral)
     {
         await Deferral();
 
         userTag = userTag.ToUpper();
 
         var guildId = Context.GuildId;
-        var settings = await _dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
+        var settings = await dbContext.GetOrCreateSettingsAsync(guildId, settings => settings.Members);
 
         foreach (var guildMember in settings.Members)
         {
@@ -95,7 +41,7 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
                 return Response($"Identity theft is not a joke, {Context.Author.Mention}");
         }
 
-        var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
+        var clanMembers = await clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
         if (clanMembers == null)
             return Response("Clan not found");
 
@@ -108,8 +54,8 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
 
         settings.Members.Add(newMember);
 
-        _dbContext.Update(settings);
-        await _dbContext.SaveChangesAsync();
+        dbContext.Update(settings);
+        await dbContext.SaveChangesAsync();
 
         await member.ModifyAsync(props => props.Nick = clanMember.Name);
 
@@ -144,15 +90,46 @@ public partial class VerificationModule : DiscordApplicationGuildModuleBase
         if (guild.Roles.ContainsKey(roleId))
             await member.GrantRoleAsync(roleId);
 
-        if (!ephemeral)
-            return Response("Member has been verified");
+        return Response("Member has been verified");
+    }
 
-        var message = new LocalMessage
-        {
-            Content = $"{Context.Author.Mention} has been verified {Markdown.Link("CC", $"https://cc.fwafarm.com/cc_n/member.php?tag={userTag[1..]}")}"
-        };
-        await Bot.SendMessageAsync(Context.ChannelId, message);
-        
-        return Response(new LocalInteractionMessageResponse { Content ="You have been verified", IsEphemeral = true});
+    [SlashCommand("unverified")]
+    [Description("Lists all of the unverified members in the guild")]
+    public async ValueTask<IResult> UnverifiedAsync()
+    {
+        var guildId = Context.GuildId;
+        var guild = Context.Bot.GetGuild(guildId);
+        if (guild == null)
+            return Response("Guild not in bot cache, contact your local bot admin");
+
+        var settings = await dbContext.GetOrCreateSettingsAsync(guildId);
+
+        if (!guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var role))
+            return Response("Unverified role has not been setup yet");
+
+        var unverifiedMembers = guild.Members.Values
+            .Where(member => member.RoleIds.Contains(role.Id))
+            .Select(member => member.Nick ?? member.Name);
+
+        return Response($"Unverified members:\n{string.Join('\n', unverifiedMembers)}");
+    }
+
+    [SlashCommand("trigger-welcome")]
+    [Description("Manually retrigger the welcome message modal")]
+    [RequireAuthorPermissions(Permissions.ManageRoles)]
+    public async ValueTask<IResult> TriggerWelcomeModal([Description("The member to trigger the welcome for")] IMember member)
+    {
+        var settings = await dbContext.GetOrCreateSettingsAsync(Context.GuildId);
+        if (settings.Password is null)
+            return Response("Password is not configured yet");
+
+        var view = new WelcomeView(
+            Context.Bot.GetGuild(Context.GuildId)!.Name,
+            townhallConfiguration.Value.BaseLinkByLevel,
+            member.Id,
+            settings.Password
+        );
+
+        return View(view);
     }
 }
