@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Qmmands;
+using Qommon.Metadata;
 
 namespace Dwight;
 
@@ -24,12 +26,16 @@ public class DwightBot : DiscordBot
         var logger = (ILogger) Services.GetRequiredService(typeof(ILogger<>).MakeGenericType(module.TypeInfo!));
 
         logger.LogInformation("Executing {Module}#{Command}", module.Name, command.Name);
+        context.SetMetadata("stopwatch", Stopwatch.StartNew());
 
         return base.OnBeforeExecuted(context);
     }
 
     protected override ValueTask<bool> OnAfterExecuted(IDiscordCommandContext context, IResult result)
     {
+        var stopwatch = context.GetMetadata<Stopwatch>("stopwatch");
+        stopwatch!.Stop();
+        
         if (result is CommandNotFoundResult)
             return base.OnAfterExecuted(context, result);
 
@@ -37,7 +43,13 @@ public class DwightBot : DiscordBot
         var module = command.Module;
         var logger = (ILogger) Services.GetRequiredService(typeof(ILogger<>).MakeGenericType(module.TypeInfo!));
 
-        logger.LogInformation("Executed {Module}#{Command} with result {Result}", module.Name, command.Name, result.FailureReason);
+        logger.LogInformation(
+            "Executed {Module}#{Command} with failure {Result} in {Time}",
+            module.Name,
+            command.Name, 
+            result.FailureReason,
+            stopwatch.Elapsed
+        );
 
         return base.OnAfterExecuted(context, result);
     }
