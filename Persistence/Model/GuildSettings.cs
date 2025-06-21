@@ -7,6 +7,7 @@ public class GuildSettings
 {
     public ulong GuildId { get; init; }
 
+    [MapCommand(typeof(string))]
     public string? ClanTag { get; set; }
 
     [MapCommand(typeof(IInteractionChannel))]
@@ -33,6 +34,7 @@ public class GuildSettings
     [MapCommand(typeof(IRole))]
     public ulong WarRoleId { get; set; }
 
+    [MapCommand(typeof(string))]
     public string? Password { get; set; }
 
     public List<ClashMember> Members { get; set; } = new();

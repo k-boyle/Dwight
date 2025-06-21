@@ -1,6 +1,8 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using System.Text;
-using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot;
 using Disqord.Bot.Commands;
@@ -14,90 +16,182 @@ namespace Dwight;
 [RequireBotOwner(Group = "perms")]
 public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
 {
-    private readonly DwightDbContext _dbContext;
+    private static readonly Dictionary<string, PropertyInfo> PropertyMapping = new();
 
     [MutateModule]
+    // todo lots of duplication but ohwell
     public static void MutateModule(DiscordBotBase _, ApplicationModuleBuilder moduleBuilder)
     {
         var guildSettings = typeof(GuildSettings);
-        var properties = guildSettings.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var properties = guildSettings.GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Select(property => new SettingsProperty(property, property.GetCustomAttribute<MapCommandAttribute>()))
+            .Where(property => property.Attribute != null)
+            .GroupBy(property => property.Attribute!.ParameterType)
+            .ToDictionary(property => property.Key, property => property.ToList());
 
-        foreach (var propertyInfo in properties)
+        foreach (var (type, settingsProperties) in properties)
         {
-            var attribute = propertyInfo.GetCustomAttribute<MapCommandAttribute>();
-            if (attribute == null)
-                continue;
-
-            AddSetCommand(moduleBuilder, propertyInfo, attribute);
-            AddViewCommand(moduleBuilder, propertyInfo);
+            AddSetCommand(moduleBuilder, type, settingsProperties);
+            AddViewCommand(moduleBuilder, type, settingsProperties);
         }
     }
 
-    // todo duplicate code
-    private static void AddSetCommand(ApplicationModuleBuilder moduleBuilder, PropertyInfo propertyInfo, MapCommandAttribute attribute)
+    private static void AddSetCommand(ApplicationModuleBuilder moduleBuilder, Type type, List<SettingsProperty> properties)
     {
-        var callback = new DelegateCommandCallback(async _ =>
+        var executionCallback = new DelegateCommandCallback(async _ =>
         {
-            var context = (IDiscordApplicationCommandContext)_;
+            var context = (IDiscordApplicationGuildCommandContext)_;
             var dbContext = context.Services.GetDwightDbContext();
+        
+            var settings = await dbContext.GetOrCreateSettingsAsync(context.GuildId);
 
-            var settings = await dbContext.GetOrCreateSettingsAsync(context.GuildId!.Value.RawValue);
-            var argument = (ISnowflakeEntity)context.Arguments![context.Command!.Parameters[0]]!;
-            propertyInfo.SetValue(settings, (ulong)argument.Id);
+            var propertyString = context.Arguments![context.Command!.Parameters[0]];
+            var propertyInfo = PropertyMapping[(string) propertyString!];
+
+            var argument = context.Arguments[context.Command.Parameters[1]]!;
+
+            switch (argument)
+            {
+                case ISnowflakeEntity snowflakeEntity:
+                    propertyInfo.SetValue(settings, (ulong)snowflakeEntity.Id);
+                    break;
+                default:
+                    propertyInfo.SetValue(settings, argument);
+                    break;
+            }
 
             await dbContext.SaveChangesAsync();
 
-            var setResponse = new LocalInteractionMessageResponse().WithContent($"{propertyInfo.Name} has been set to {argument.Id}");
+            var setResponse = new LocalInteractionMessageResponse()
+                .WithContent($"{propertyInfo.Name} has been set to {argument}");
             return new DiscordInteractionResponseCommandResult(context, setResponse);
         });
+        
+        var commandAlias = type.Name;
+        if (type.IsInterface) 
+            commandAlias = commandAlias[1..];
 
-        var trimmedPropertyName = propertyInfo.Name[..^2];
-        var name = Spacify(trimmedPropertyName, ' ');
         var setModule = moduleBuilder.Submodules[0];
-        var commandBuilder = new ApplicationCommandBuilder(setModule, callback)
+
+        var setCommandAlias = Spacify(commandAlias, '-').ToLower();
+
+        var setCommandBuilder = new ApplicationCommandBuilder(setModule, executionCallback)
         {
-            Name = name,
-            Alias = Spacify(trimmedPropertyName, '-').ToLower(),
-            Description = $"Sets the {name}"
+            Type = ApplicationCommandType.Slash,
+            Name = Spacify(commandAlias, ' '),
+            Alias = setCommandAlias,
         };
 
-        var parameterType = attribute.ParameterType;
-        var parameter = new ApplicationParameterBuilder(commandBuilder, parameterType)
+        var propertyParameter = new ApplicationParameterBuilder(setCommandBuilder, typeof(string))
         {
-            Name = parameterType.Name[1..]
+            Name = "Property",
+            Description = "The property to set"
         };
 
-        commandBuilder.Parameters.Add(parameter);
+        foreach (var settingsProperty in properties)
+        {
+            var choice = settingsProperty.Property.Name;
+            if (choice.EndsWith("Id"))
+                choice = choice[..^2];
 
-        setModule.Commands.Add(commandBuilder);
+            PropertyMapping[choice] = settingsProperty.Property;
+
+            var choiceAttribute = new ChoiceAttribute(choice, choice);
+            propertyParameter.CustomAttributes.Add(choiceAttribute);
+        }
+
+        setCommandBuilder.Parameters.Add(propertyParameter);
+
+        var valueParameter = new ApplicationParameterBuilder(setCommandBuilder, type)
+        {
+            Name = "Value",
+            Description = "The value to set the property to",
+        };
+
+        if (type == typeof(IInteractionChannel))
+        {
+            var channelTypeAttribute = new ChannelTypesAttribute(ChannelType.Text);
+            valueParameter.CustomAttributes.Add(channelTypeAttribute);
+        }
+
+        setCommandBuilder.Parameters.Add(valueParameter);
+
+        setModule.Commands.Add(setCommandBuilder);
     }
 
-    private static void AddViewCommand(ApplicationModuleBuilder moduleBuilder, PropertyInfo propertyInfo)
+    private static void AddViewCommand(ApplicationModuleBuilder moduleBuilder, Type type, List<SettingsProperty> properties)
     {
-        var callback = new DelegateCommandCallback(async _ =>
+        
+        var executionCallback = new DelegateCommandCallback(async _ =>
         {
-            var context = (IDiscordApplicationCommandContext)_;
+            var context = (IDiscordApplicationGuildCommandContext)_;
             var dbContext = context.Services.GetDwightDbContext();
+        
+            var settings = await dbContext.GetOrCreateSettingsAsync(context.GuildId);
 
-            var settings = await dbContext.GetOrCreateSettingsAsync(context.GuildId!.Value.RawValue);
-            var value = propertyInfo.GetValue(settings);
+            var propertyString = context.Arguments![context.Command!.Parameters[0]];
+            var propertyInfo = PropertyMapping[(string) propertyString!];
 
-            var setResponse = new LocalInteractionMessageResponse().WithContent($"{propertyInfo.Name} has been set to \"{value}\"");
+            var currentValue = propertyInfo.GetValue(settings);
+
+            var formattedValue = currentValue switch
+            {
+                ulong and 0 or null => Markdown.Code("unset"),
+                ulong role when typeof(IRole).IsAssignableFrom(type) => Mention.Role(role),
+                ulong channel when typeof(IChannel).IsAssignableFrom(type) => Mention.Channel(channel),
+                ulong user when typeof(IUser).IsAssignableFrom(type) => Mention.User(user),
+                _ => $"\"{currentValue}\""
+            };
+            
+            var setResponse = new LocalInteractionMessageResponse()
+                .WithContent($"{propertyInfo.Name} has been set to {formattedValue}");
             return new DiscordInteractionResponseCommandResult(context, setResponse);
         });
+        
+        var commandAlias = type.Name;
+        if (type.IsInterface) 
+            commandAlias = commandAlias[1..];
 
-        var trimmedPropertyName = propertyInfo.Name[..^2];
-        var name = Spacify(trimmedPropertyName, ' ');
         var viewModule = moduleBuilder.Submodules[1];
-        var commandBuilder = new ApplicationCommandBuilder(viewModule, callback)
+
+        var viewCommandAlias = Spacify(commandAlias, '-').ToLower();
+
+        var viewCommandBuilder = new ApplicationCommandBuilder(viewModule, executionCallback)
         {
-            Name = name,
-            Alias = Spacify(trimmedPropertyName, '-').ToLower(),
-            Description = $"Views the {name}"
+            Type = ApplicationCommandType.Slash,
+            Name = Spacify(commandAlias, ' '),
+            Alias = viewCommandAlias,
         };
 
-        viewModule.Commands.Add(commandBuilder);
+        var propertyParameter = new ApplicationParameterBuilder(viewCommandBuilder, typeof(string))
+        {
+            Name = "Property",
+            Description = "The property to view"
+        };
+
+        foreach (var settingsProperty in properties)
+        {
+            var choice = settingsProperty.Property.Name;
+            if (choice.EndsWith("Id"))
+                choice = choice[..^2];
+
+            PropertyMapping[choice] = settingsProperty.Property;
+
+            var choiceAttribute = new ChoiceAttribute(choice, choice);
+            propertyParameter.CustomAttributes.Add(choiceAttribute);
+        }
+
+        viewCommandBuilder.Parameters.Add(propertyParameter);
+        viewModule.Commands.Add(viewCommandBuilder);
     }
+
+    [SlashGroup("set")]
+    public class SetCommands : GuildConfigurationModule;
+    
+    [SlashGroup("view")]
+    public class ViewCommands : GuildConfigurationModule;
+
+    private record SettingsProperty(PropertyInfo Property, MapCommandAttribute? Attribute);
 
     private static string Spacify(string str, char separator)
     {
@@ -113,73 +207,5 @@ public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
         }
 
         return builder.ToString();
-    }
-
-    public GuildConfigurationModule(DwightDbContext dbContext)
-    {
-        _dbContext = dbContext;
-    }
-
-    [SlashGroup("set")]
-    public class SetCommands : GuildConfigurationModule
-    {
-        public SetCommands(DwightDbContext dbContext) : base(dbContext)
-        {
-        }
-
-        [SlashCommand("clan-tag")]
-        [Description("Sets the clan tag")]
-        public async ValueTask<IResult> SetClanTagAsync(string clanTag)
-        {
-            clanTag = clanTag.ToUpper();
-
-            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
-            settings.ClanTag = clanTag;
-
-            return Response($"Clan tag has been set to {clanTag}");
-        }
-
-        [SlashCommand("password")]
-        [Description("Sets the password")]
-        public async ValueTask<IResult> SetPasswordAsync(string password)
-        {
-            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
-            settings.Password = password;
-            return Response($"Password has been set to {password}");
-        }
-
-        public override async ValueTask OnAfterExecuted()
-        {
-            await _dbContext.SaveChangesAsync();
-        }
-    }
-
-    [SlashGroup("view")]
-    public class ViewCommands : GuildConfigurationModule
-    {
-        public ViewCommands(DwightDbContext dbContext) : base(dbContext)
-        {
-        }
-
-        [SlashCommand("clan-tag")]
-        [Description("Views the clan tag")]
-        public async ValueTask<IResult> ViewClanTagAsync()
-        {
-            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
-            return Response($"Clan tag has been set to \"{settings.ClanTag}\"");
-        }
-
-        [SlashCommand("password")]
-        [Description("Views the password")]
-        public async ValueTask<IResult> ViewPasswordAsync()
-        {
-            var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId.RawValue);
-            return Response($"Password has been set to \"{settings.Password}\"");
-        }
-
-        public override async ValueTask OnAfterExecuted()
-        {
-            await _dbContext.SaveChangesAsync();
-        }
     }
 }
