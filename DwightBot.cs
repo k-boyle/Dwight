@@ -33,7 +33,7 @@ public class DwightBot : DiscordBot
 
     protected override ValueTask<bool> OnAfterExecuted(IDiscordCommandContext context, IResult result)
     {
-        var stopwatch = context.GetMetadata<Stopwatch>("stopwatch");
+        context.TryGetMetadata<Stopwatch>("stopwatch", out var stopwatch);
         stopwatch?.Stop();
         
         if (result is CommandNotFoundResult)
