@@ -106,7 +106,7 @@ public class WarReminderService : DiscordBotService
                 case WarState.Preparation when !currentReminder.DeclaredPosted:
                 {
                     // todo add role
-                    var resultUri = $"https://fwapoints.chocolateclash.com/clan?tag={clanTag.Replace("#", "")}";
+                    var resultUri = $"https://points.fwafarm.com/clan?tag={clanTag.Replace("#", "")}";
                     var response = await _httpClient.GetAsync(resultUri, cancellationToken);
                     var body = await response.Content.ReadAsStringAsync(cancellationToken);
                     if (!response.IsSuccessStatusCode)
@@ -132,7 +132,7 @@ public class WarReminderService : DiscordBotService
 
                     var hrefRegex = new Regex(@"<a href=""(?<redirect>\/[\w?=]+)"">(?<text>[\w\s#]+)<\/a>", RegexOptions.Compiled);
                     var linksReplaced = hrefRegex.Replace(resultsNode.InnerHtml,
-                        match => Markdown.Link(match.Groups["text"].Value, $"https://fwapoints.chocolateclash.com{match.Groups["redirect"]}"));
+                        match => Markdown.Link(match.Groups["text"].Value, $"https://points.fwafarm.com{match.Groups["redirect"]}"));
                     var breaksReplaced = linksReplaced.Replace("<br>", "\n");
                     var boldRegex = new Regex(@"<b>(?<text>.+)<\/b>", RegexOptions.Compiled);
                     var boldedText = boldRegex.Replace(breaksReplaced, match => Markdown.Bold(match.Groups["text"].Value));
