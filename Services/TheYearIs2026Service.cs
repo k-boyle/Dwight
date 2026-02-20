@@ -5,7 +5,7 @@ using Disqord.Rest;
 
 namespace Dwight;
 
-public class TheYearIs2025Service : DiscordBotService
+public class TheYearIs2026Service : DiscordBotService
 {
     protected override async ValueTask OnMessageReceived(BotMessageReceivedEventArgs e)
     {
@@ -14,7 +14,7 @@ public class TheYearIs2025Service : DiscordBotService
         await Bot.SendMessageAsync(e.ChannelId,
             new()
             {
-                Content = "It's 2025, it's / commands",
+                Content = "It's 2026, it's / commands",
                 Reference = new LocalMessageReference { MessageId = e.MessageId }
             });
     }
