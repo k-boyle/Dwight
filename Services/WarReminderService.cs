@@ -2,15 +2,12 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web;
 using Disqord;
 using Disqord.Bot.Hosting;
 using Disqord.Gateway;
 using Disqord.Rest;
-using HtmlAgilityPack;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -105,49 +102,11 @@ public class WarReminderService : DiscordBotService
             {
                 case WarState.Preparation when !currentReminder.DeclaredPosted:
                 {
-                    // todo add role
-                    var resultUri = $"https://points.fwafarm.com/clan?tag={clanTag.Replace("#", "")}";
-                    var response = await _httpClient.GetAsync(resultUri, cancellationToken);
-                    var body = await response.Content.ReadAsStringAsync(cancellationToken);
-                    if (!response.IsSuccessStatusCode)
-                    {
-                        Logger.LogError(new Exception(body), "There was a problem retrieving html from fwa");
-                        continue;
-                    }
-
-                    var document = new HtmlDocument();
-                    document.LoadHtml(body);
-
-                    var resultsNode = document.DocumentNode.SelectSingleNode("/html/body/p[3]");
-                    var firstNode = resultsNode!.ChildNodes.ElementAt(6);
-                    var secondNode = resultsNode.ChildNodes.ElementAt(8);
-
-                    var firstNodeTag = firstNode.InnerText;
-                    var secondNodeTag = secondNode.InnerText;
-                    if (!(opponentTag.EndsWith(firstNodeTag) || opponentTag.EndsWith(secondNodeTag)))
-                    {
-                        Logger.LogInformation("FWA site has not updated yet");
-                        continue;
-                    }
-
-                    var hrefRegex = new Regex(@"<a href=""(?<redirect>\/[\w?=]+)"">(?<text>[\w\s#]+)<\/a>", RegexOptions.Compiled);
-                    var linksReplaced = hrefRegex.Replace(resultsNode.InnerHtml,
-                        match => Markdown.Link(match.Groups["text"].Value, $"https://points.fwafarm.com{match.Groups["redirect"]}"));
-                    var breaksReplaced = linksReplaced.Replace("<br>", "\n");
-                    var boldRegex = new Regex(@"<b>(?<text>.+)<\/b>", RegexOptions.Compiled);
-                    var boldedText = boldRegex.Replace(breaksReplaced, match => Markdown.Bold(match.Groups["text"].Value));
-                    var decoded = HttpUtility.HtmlDecode(boldedText);
+                    var url = $"https://points.fwafarm.com/clan?tag={clanTag[1..]}";
 
                     var message = new LocalMessage
                     {
-                        Embeds = new List<LocalEmbed>
-                        {
-                            new()
-                            {
-                                Description = decoded,
-                                Color = Color.Gold
-                            }
-                        }
+                        Content = Markdown.Link("War has been declared!", url)
                     };
                     await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
                     currentReminder.DeclaredPosted = true;
