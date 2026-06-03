@@ -6,7 +6,7 @@ namespace Dwight;
 /// </summary>
 public interface IPlayerMetric
 {
-    /// <summary>Stable identifier persisted with every sample, e.g. "attack_wins".</summary>
+    /// <summary>Stable identifier persisted with every sample, e.g. "donations".</summary>
     string Key { get; }
 
     int Extract(Player player);

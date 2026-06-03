@@ -1,11 +1,13 @@
 using System;
 using System.Threading.Tasks;
+using Disqord.Bot.Commands;
 using Disqord.Bot.Commands.Application;
 using Qmmands;
 
 namespace Dwight;
 
 [SlashGroup("activity")]
+[RequireBotOwner]
 public class ActivityModule : DiscordApplicationGuildModuleBase
 {
     private readonly DwightDbContext _dbContext;
