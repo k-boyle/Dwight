@@ -14,6 +14,7 @@ public static class ActivityServiceExtensions
         collection.AddScoped<IPlayerMetric, DonationsMetric>();
         collection.AddScoped<IPlayerMetric, DonationsReceivedMetric>();
         collection.AddScoped<IPlayerMetric, ClanCapitalContributionsMetric>();
+        collection.AddScoped<IPlayerMetric, ActiveDailyLabelMetric>();
         collection.AddScoped<IActivityCollector, PlayerStatsCollector>();
         collection.AddScoped<IActivitySink, PostgresActivitySink>();
         collection.AddScoped<ActivityCollectionService>();
