@@ -1,3 +1,3 @@
 ﻿namespace Dwight;
 
-public record Player(string Name, WarPreference WarPreference);
+public record Player(string Name, WarPreference WarPreference, int AttackWins);

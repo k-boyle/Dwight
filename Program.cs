@@ -52,7 +52,8 @@ public class Program
                     .Configure<TownhallConfiguration>(context.Configuration.GetSection("Clash"))
                     .Configure<PollingConfiguration>(context.Configuration.GetSection("Polling"))
                     .Configure<ClashConfiguration>(context.Configuration.GetSection("Clash"))
-                    .AddClashApiClient();
+                    .AddClashApiClient()
+                    .AddActivityTracking();
             })
             .Build();
 

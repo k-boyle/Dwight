@@ -10,6 +10,7 @@ public class DwightDbContext : DbContext
 {
     public DbSet<ClashMember> Members { get; set; } = null!;
     public DbSet<GuildSettings> GuildSettings { get; set; } = null!;
+    public DbSet<ActivitySample> ActivitySamples { get; set; } = null!;
 
     public DwightDbContext(DbContextOptions<DwightDbContext> options) : base(options)
     {
@@ -46,6 +47,13 @@ public class DwightDbContext : DbContext
                 .HasForeignKey<CurrentWarReminder>(reminder => reminder.GuildId)
                 .OnDelete(DeleteBehavior.Cascade);
             entity.ToTable("guild_settings");
+        });
+
+        modelBuilder.Entity<ActivitySample>(entity =>
+        {
+            entity.HasKey(sample => sample.Id);
+            entity.HasIndex(sample => new { sample.PlayerTag, sample.MetricKey, sample.Timestamp });
+            entity.ToTable("activity_samples");
         });
     }
 
