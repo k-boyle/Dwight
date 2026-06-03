@@ -14,15 +14,21 @@ public class ActivitySample
     public ulong GuildId { get; init; }
     public string ClanTag { get; init; }
     public string PlayerTag { get; init; }
+
+    /// <summary>The player's in-game name as observed at sample time. Denormalised so downstream
+    /// dashboards can label by name without a separate lookup; captures renames over time.</summary>
+    public string PlayerName { get; init; }
+
     public string MetricKey { get; init; }
     public int Value { get; init; }
 
-    public ActivitySample(DateTimeOffset timestamp, ulong guildId, string clanTag, string playerTag, string metricKey, int value)
+    public ActivitySample(DateTimeOffset timestamp, ulong guildId, string clanTag, string playerTag, string playerName, string metricKey, int value)
     {
         Timestamp = timestamp;
         GuildId = guildId;
         ClanTag = clanTag;
         PlayerTag = playerTag;
+        PlayerName = playerName;
         MetricKey = metricKey;
         Value = value;
     }

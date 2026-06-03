@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -55,58 +54,17 @@ public class ActivityTrackingService : DiscordBotService
 
         await using var scope = Bot.Services.CreateAsyncScope();
         var context = scope.ServiceProvider.GetDwightDbContext();
-        var collectors = scope.ServiceProvider.GetServices<IActivityCollector>().ToArray();
-        var sinks = scope.ServiceProvider.GetServices<IActivitySink>().ToArray();
-
-        if (collectors.Length == 0 || sinks.Length == 0)
-        {
-            Logger.LogWarning("No activity collectors or sinks registered, skipping");
-            return;
-        }
+        var collectionService = scope.ServiceProvider.GetRequiredService<ActivityCollectionService>();
 
         var allSettings = await context.GuildSettings
-            .Include(settings => settings.Members)
             .ToListAsync(cancellationToken);
 
-        var samples = new List<ActivitySample>();
+        var total = 0;
         foreach (var settings in allSettings)
-        {
-            if (settings.ClanTag == null)
-            {
-                Logger.LogDebug("Clan tag not set for {GuildId}, skipping", settings.GuildId);
-                continue;
-            }
+            total += await collectionService.CollectAsync(settings, timestamp, cancellationToken);
 
-            foreach (var collector in collectors)
-            {
-                try
-                {
-                    var collected = await collector.CollectAsync(settings, timestamp, cancellationToken);
-                    samples.AddRange(collected);
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError(ex, "Collector {Collector} failed for guild {GuildId}", collector.GetType().Name, settings.GuildId);
-                }
-            }
-        }
-
-        if (samples.Count > 0)
-        {
-            foreach (var sink in sinks)
-            {
-                try
-                {
-                    await sink.WriteAsync(samples, cancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    Logger.LogError(ex, "Sink {Sink} failed to write {Count} samples", sink.GetType().Name, samples.Count);
-                }
-            }
-
-            Logger.LogInformation("Collected {Count} activity samples", samples.Count);
-        }
+        if (total > 0)
+            Logger.LogInformation("Collected {Count} activity samples", total);
 
         await ApplyRetentionAsync(context, timestamp, cancellationToken);
     }

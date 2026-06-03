@@ -30,9 +30,15 @@ public class PlayerStatsCollector : IActivityCollector
         if (settings.ClanTag is not { } clanTag || _metrics.Count == 0)
             return Array.Empty<ActivitySample>();
 
-        var tags = settings.Members.SelectMany(member => member.Tags).Distinct().ToArray();
-        if (tags.Length == 0)
+        // Sample the whole live clan roster, not just members linked to the bot.
+        var clanMembers = await _clashApiClient.GetClanMembersAsync(clanTag, cancellationToken);
+        if (clanMembers == null || clanMembers.Count == 0)
+        {
+            _logger.LogDebug("Got no members for clan {ClanTag}", clanTag);
             return Array.Empty<ActivitySample>();
+        }
+
+        var tags = clanMembers.Select(member => member.Tag).Distinct().ToArray();
 
         var players = await Task.WhenAll(tags.Select(tag => FetchAsync(tag, cancellationToken)));
 
@@ -43,7 +49,7 @@ public class PlayerStatsCollector : IActivityCollector
                 continue;
 
             foreach (var metric in _metrics)
-                samples.Add(new(timestamp, settings.GuildId, clanTag, tag, metric.Key, metric.Extract(player)));
+                samples.Add(new(timestamp, settings.GuildId, clanTag, tag, player.Name, metric.Key, metric.Extract(player)));
         }
 
         return samples;

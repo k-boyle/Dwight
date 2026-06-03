@@ -12,8 +12,12 @@ public static class ActivityServiceExtensions
     public static IServiceCollection AddActivityTracking(this IServiceCollection collection)
     {
         collection.AddScoped<IPlayerMetric, AttackWinsMetric>();
+        collection.AddScoped<IPlayerMetric, DonationsMetric>();
+        collection.AddScoped<IPlayerMetric, DonationsReceivedMetric>();
+        collection.AddScoped<IPlayerMetric, ClanCapitalContributionsMetric>();
         collection.AddScoped<IActivityCollector, PlayerStatsCollector>();
         collection.AddScoped<IActivitySink, PostgresActivitySink>();
+        collection.AddScoped<ActivityCollectionService>();
 
         return collection;
     }

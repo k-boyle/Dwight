@@ -7,3 +7,4 @@ riderModule.iml
 .idea
 appsettings.*.json
 gcp.json
+grafana/activity-dashboard.json
