@@ -29,7 +29,7 @@ AND table_name!='__EFMigrationsHistory';
     }
 
     [SlashCommand("guild")]
-    [Description("Does a guild data dump (gdpr be :^])")]
+    [Description("Hands over every scrap of this guild's data. The GDPR compels me. :^]")]
     public async ValueTask<IResult> DumpDbAsync()
     {
         await using var connection = _dbContext.Database.GetDbConnection();
@@ -78,7 +78,7 @@ AND table_name!='__EFMigrationsHistory';
         }
 
         return attachments.Count == 0
-            ? Response("No data to dump")
+            ? Response("There is nothing to surrender. The files are empty. Move along.")
             : Response(new LocalInteractionMessageResponse { Content = "Don't tell the cops", Attachments = attachments, IsEphemeral = true });
     }
 }

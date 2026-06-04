@@ -20,7 +20,7 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
         if (!e.Interaction.ApplicationPermissions.HasFlag(Permissions.ManageRoles & Permissions.SetNick))
         {
             var appFailedPermissions = new LocalInteractionMessageResponse()
-                .WithContent($"{Mention.User(e.Interaction.ApplicationId)} is missing manage roles or set nickname permissions")
+                .WithContent($"{Mention.User(e.Interaction.ApplicationId)} lacks the manage roles or set nickname permissions. A man with no authority is no man at all. Fix it.")
                 .WithIsEphemeral();
             await e.Interaction.Response().SendMessageAsync(appFailedPermissions);
             return;
@@ -29,7 +29,7 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
         if (!e.Interaction.AuthorPermissions.HasFlag(Permissions.ManageRoles))
         {
             var userFailedPermissions = new LocalInteractionMessageResponse()
-                .WithContent($"{Mention.User(e.Interaction.AuthorId)} you are missing the manage roles permission")
+                .WithContent($"{Mention.User(e.Interaction.AuthorId)}, you do not have the manage roles permission. You cannot accept recruits. Know your rank.")
                 .WithIsEphemeral();
             await e.Interaction.Response().SendMessageAsync(userFailedPermissions);
             return;
@@ -50,7 +50,7 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
                 ClearComponents();
 
                 var alreadyVerified = new LocalInteractionMessageResponse()
-                    .WithContent($"{Mention.User(userId)} is already verified")
+                    .WithContent($"{Mention.User(userId)} is already verified. We do not do things twice. That is inefficient.")
                     .WithIsEphemeral();
                 await e.Interaction.Response().SendMessageAsync(alreadyVerified);
                 return;
@@ -76,7 +76,7 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
             ClearComponents();
             
             var clanNotFound = new LocalInteractionMessageResponse()
-                .WithContent($"Clan {settings.ClanTag!} not found")
+                .WithContent($"Clan {settings.ClanTag!} does not exist. I searched. I am thorough. It is not there.")
                 .WithIsEphemeral();
             await e.Interaction.Response().SendMessageAsync(clanNotFound);
             return;
@@ -87,7 +87,7 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
         if (clanMember == null)
         {
             var notInClan = new LocalInteractionMessageResponse()
-                .WithContent($"{Mention.User(userId)} is not in the clan")
+                .WithContent($"{Mention.User(userId)} is not in the clan. Infiltrators are not welcome. Join the clan first, then we talk.")
                 .WithIsEphemeral();
             await e.Interaction.Response().SendMessageAsync(notInClan);
             return;
@@ -108,7 +108,7 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
         if (guild == null)
         {
             var notInCache = new LocalInteractionMessageResponse()
-                .WithContent($"{guildId} is not in the bot cache, contact your local bot admin")
+                .WithContent($"{guildId} is not in my cache. This is a serious breach. Contact your local bot admin immediately.")
                 .WithIsEphemeral();
             await e.Interaction.Response().SendMessageAsync(notInCache);
             return;
@@ -142,7 +142,7 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
             await member.GrantRoleAsync(roleId);
 
         var accepted = new LocalInteractionMessageResponse()
-            .WithContent($"{Mention.User(userId)} has been accepted");
+            .WithContent($"{Mention.User(userId)} has been accepted. Welcome to the fold. Do not make me regret this.");
         
         await e.Interaction.Response().SendMessageAsync(accepted);
     }

@@ -14,7 +14,7 @@ public class TheYearIs2026Service : DiscordBotService
         await Bot.SendMessageAsync(e.ChannelId,
             new()
             {
-                Content = "It's 2026, it's / commands",
+                Content = "It is 2026. We use slash commands now. Adapt or be left behind.",
                 Reference = new LocalMessageReference { MessageId = e.MessageId }
             });
     }

@@ -20,13 +20,13 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 
     [SlashCommand("discord-check")]
     [RequireClanTag]
-    [Description("Finds all the members that are in the clan but not in the Discord")]
+    [Description("Roots out everyone in the clan who has not reported to the Discord")]
     public async ValueTask<IResult> DiscordCheckAsync()
     {
         var settings = await _dbContext.GetOrCreateSettingsAsync(Context.GuildId, settings => settings.Members);
         var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
         if (clanMembers == null)
-            return Response("Clan not found");
+            return Response("Clan not found. I searched. I am thorough. It is not there.");
 
         var inClan = settings.Members.SelectMany(member => member.Tags).ToHashSet();
 
@@ -39,12 +39,12 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
     }
 
     [SlashCommand("reminders")]
-    [Description("Set whether you want attack reminders in farm wars")]
+    [Description("Decide whether I will hound you to attack in farm wars. I recommend yes.")]
     public async Task<IResult> RemindersAsync(bool remind)
     {
         var member = await _dbContext.Members.FindAsync(Context.GuildId.RawValue, Context.Author.Id.RawValue);
         if (member == null)
-            return Response("You are not part of a clan");
+            return Response("You are not part of a clan. I do not take orders from civilians.");
 
         if (member.Remind != remind)
         {
@@ -53,11 +53,11 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
             await _dbContext.SaveChangesAsync();
         }
 
-        return Response(remind ? "You will now receive reminders to attack in farm wars" : "You will no longer receive reminders to attack in farm wars");
+        return Response(remind ? "Good. I will remind you to attack in farm wars. Discipline is everything." : "Fine. I will no longer remind you. Your missed attacks are now your own shame.");
     }
 
     [SlashCommand("alts")]
-    [Description("Lists all of the alts in the clan")]
+    [Description("Exposes every member running more than one account in the clan")]
     public async Task<IResult> GetAltsAsync()
     {
         await Deferral();
@@ -69,7 +69,7 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 
         var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
         if (clanMembers == null)
-            return Response("Clan not found");
+            return Response("Clan not found. I searched. I am thorough. It is not there.");
 
         var response = new StringBuilder();
 
@@ -88,7 +88,7 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
         var messageResponse = new LocalInteractionMessageResponse
         {
             AllowedMentions = LocalAllowedMentions.None,
-            Content = response.Length == 0 ? "No one has alts" : response.ToString()
+            Content = response.Length == 0 ? "No one is running alts. An honest clan. How refreshing." : response.ToString()
         };
         return Response(messageResponse);
     }
