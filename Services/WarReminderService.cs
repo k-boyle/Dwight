@@ -106,7 +106,7 @@ public class WarReminderService : DiscordBotService
 
                     var message = new LocalMessage
                     {
-                        Content = Markdown.Link("War has been declared!", url)
+                        Content = Markdown.Link("War has been declared! Prepare yourselves. This is not a drill.", url)
                     };
                     await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
                     currentReminder.DeclaredPosted = true;
@@ -123,8 +123,8 @@ public class WarReminderService : DiscordBotService
                         var message = new LocalMessage
                         {
                             Content = warRole == null
-                                ? $"War has started against {currentWar.Opponent.Name}!"
-                                : $"{warRole.Mention}, war has started against {currentWar.Opponent.Name}!"
+                                ? $"The war against {currentWar.Opponent.Name} has begun. Show them no mercy. Attack."
+                                : $"{warRole.Mention}, the war against {currentWar.Opponent.Name} has begun. Show them no mercy. Attack."
                         };
                         await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
                         currentReminder.StartedPosted = true;
@@ -165,7 +165,7 @@ public class WarReminderService : DiscordBotService
 
                             var message = new LocalMessage
                             {
-                                Content = $"War ends in {endsIn.Hours + 1} hour(s),\n{mentions}\n\nYou still need to attack!"
+                                Content = $"War ends in {endsIn.Hours + 1} hour(s).\n{mentions}\n\nYou have not used your attacks. This is unacceptable. Attack now."
                             };
                             await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
 
@@ -206,7 +206,7 @@ public class WarReminderService : DiscordBotService
 
                             var message = new LocalMessage
                             {
-                                Content = $"War ends soon! \n{mentions}\n\nYou still need to attack!"
+                                Content = $"War ends soon!\n{mentions}\n\nYou have not used your attacks. Do not let the clan down. Attack now."
                             };
                             await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
 

@@ -23,6 +23,6 @@ public class PasswordService : DiscordBotService
 
         await message.DeleteAsync();
 
-        await Bot.SendMessageAsync(message.ChannelId, new() { Content = $"{message.Author.Mention} said the correct password" });
+        await Bot.SendMessageAsync(message.ChannelId, new() { Content = $"{message.Author.Mention} spoke the correct password. I have erased the evidence. Loose lips sink clans." });
     }
 }

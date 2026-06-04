@@ -21,7 +21,7 @@ public class ActivityModule : DiscordApplicationGuildModuleBase
 
     [SlashCommand("collect")]
     [RequireClanTag]
-    [Description("Manually runs an activity collection pass for this server's clan")]
+    [Description("Conducts surveillance on the clan by hand. Nothing escapes my notice.")]
     public async Task<IResult> CollectAsync()
     {
         await Deferral();
@@ -29,6 +29,6 @@ public class ActivityModule : DiscordApplicationGuildModuleBase
         var settings = await _dbContext.GuildSettings.FindAsync(Context.GuildId.RawValue);
         var count = await _collectionService.CollectAsync(settings!, DateTimeOffset.UtcNow, Context.CancellationToken);
 
-        return Response($"Collected {count} activity sample(s)");
+        return Response($"Surveillance complete. {count} sample(s) filed. The intelligence is mine.");
     }
 }

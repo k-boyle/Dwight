@@ -22,7 +22,7 @@ public partial class VerificationModule(
     [RequireBotPermissions(Permissions.SetNick)]
     [RequireAuthorPermissions(Permissions.ManageRoles)]
     [RequireClanTag]
-    [Description("Verifies the given member with their in game player tag")]
+    [Description("Confirms a member's identity with their in game player tag. Identity theft is not a joke.")]
     public async ValueTask<IResult> VerifyAsync(IMember member, string userTag)
     {
         await Deferral();
@@ -35,7 +35,7 @@ public partial class VerificationModule(
         foreach (var guildMember in settings.Members)
         {
             if (guildMember.DiscordId == member.Id)
-                return Response($"{member} is already verified");
+                return Response($"{member} is already verified. We do not do things twice. That is inefficient.");
 
             if (guildMember.Tags.Contains(userTag, StringComparer.CurrentCultureIgnoreCase))
                 return Response($"Identity theft is not a joke, {Context.Author.Mention}");
@@ -43,12 +43,12 @@ public partial class VerificationModule(
 
         var clanMembers = await clashApiClient.GetClanMembersAsync(settings.ClanTag!, Context.CancellationToken);
         if (clanMembers == null)
-            return Response("Clan not found");
+            return Response("Clan not found. I searched. I am thorough. It is not there.");
 
         var clanMember = clanMembers.FirstOrDefault(member => member.Tag.Equals(userTag, StringComparison.CurrentCultureIgnoreCase));
 
         if (clanMember == null)
-            return Response($"{userTag} is not a member of the clan");
+            return Response($"{userTag} is not a member of this clan. I do not vouch for strangers.");
 
         var newMember = new ClashMember(guildId, member.Id, new[] { userTag }, 0, clanMember.Role, false);
 
@@ -61,7 +61,7 @@ public partial class VerificationModule(
 
         var guild = Context.Bot.GetGuild(guildId);
         if (guild == null)
-            return Response("Guild not in bot cache, contact your local bot admin");
+            return Response("This guild is not in my cache. A serious breach. Contact your local bot admin.");
 
         if (guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var unverifiedRole))
             await member.RevokeRoleAsync(unverifiedRole.Id);
@@ -90,38 +90,38 @@ public partial class VerificationModule(
         if (guild.Roles.ContainsKey(roleId))
             await member.GrantRoleAsync(roleId);
 
-        return Response("Member has been verified");
+        return Response("Member verified. Their identity is genuine. I have seen to it personally.");
     }
 
     [SlashCommand("unverified")]
-    [Description("Lists all of the unverified members in the guild")]
+    [Description("Lists everyone in the guild who has not yet proven who they are")]
     public async ValueTask<IResult> UnverifiedAsync()
     {
         var guildId = Context.GuildId;
         var guild = Context.Bot.GetGuild(guildId);
         if (guild == null)
-            return Response("Guild not in bot cache, contact your local bot admin");
+            return Response("This guild is not in my cache. A serious breach. Contact your local bot admin.");
 
         var settings = await dbContext.GetOrCreateSettingsAsync(guildId);
 
         if (!guild.Roles.TryGetValue(settings.UnverifiedRoleId, out var role))
-            return Response("Unverified role has not been setup yet");
+            return Response("There is no unverified role configured. You cannot police what you have not defined. Set it up.");
 
         var unverifiedMembers = guild.Members.Values
             .Where(member => member.RoleIds.Contains(role.Id))
             .Select(member => member.Nick ?? member.Name);
 
-        return Response($"Unverified members:\n{string.Join('\n', unverifiedMembers)}");
+        return Response($"The following have not proven their identities. I am watching them:\n{string.Join('\n', unverifiedMembers)}");
     }
 
     [SlashCommand("trigger-welcome")]
-    [Description("Manually retrigger the welcome message modal")]
+    [Description("Summons the welcome message again, by hand, because I said so")]
     [RequireAuthorPermissions(Permissions.ManageRoles)]
-    public async ValueTask<IResult> TriggerWelcomeModal([Description("The member to trigger the welcome for")] IMember member)
+    public async ValueTask<IResult> TriggerWelcomeModal([Description("The member to summon the welcome for")] IMember member)
     {
         var settings = await dbContext.GetOrCreateSettingsAsync(Context.GuildId);
         if (settings.Password is null)
-            return Response("Password is not configured yet");
+            return Response("There is no password configured. Security cannot function without a password. Set one.");
 
         var view = new WelcomeView(
             Context.Bot.GetGuild(Context.GuildId)!.Name,

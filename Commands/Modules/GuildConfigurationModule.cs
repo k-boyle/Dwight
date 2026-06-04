@@ -63,12 +63,12 @@ public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
             await dbContext.SaveChangesAsync();
 
             var setResponse = new LocalInteractionMessageResponse()
-                .WithContent($"{propertyInfo.Name} has been set to {argument}");
+                .WithContent($"It is done. {propertyInfo.Name} is now {argument}. Order has been imposed.");
             return new DiscordInteractionResponseCommandResult(context, setResponse);
         });
-        
+
         var commandAlias = type.Name;
-        if (type.IsInterface) 
+        if (type.IsInterface)
             commandAlias = commandAlias[1..];
 
         var setModule = moduleBuilder.Submodules[0];
@@ -144,7 +144,7 @@ public class GuildConfigurationModule : DiscordApplicationGuildModuleBase
             };
             
             var setResponse = new LocalInteractionMessageResponse()
-                .WithContent($"{propertyInfo.Name} has been set to {formattedValue}");
+                .WithContent($"{propertyInfo.Name} is currently {formattedValue}. I keep meticulous records.");
             return new DiscordInteractionResponseCommandResult(context, setResponse);
         });
         
