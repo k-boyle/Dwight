@@ -105,6 +105,12 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
 
         ClearComponents();
 
+        await using var scope = bot.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetDwightDbContext();
+
+        // The welcome view is done with; drop it so it is not reattached on restart.
+        await context.RemoveViewAsync(Menu.MessageId);
+
         var player = await apiClient.GetPlayerAsync(verifiedToken!.Tag, CancellationToken.None);
         var tag = verifiedToken.Tag;
 
@@ -122,7 +128,16 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
             tag
         );
         var menu = new DefaultTextMenu(verificationCompletedView);
-        await bot.StartMenuAsync(e.ChannelId, menu);
+        await bot.StartMenuAsync(e.ChannelId, menu, Timeout.InfiniteTimeSpan);
+
+        await context.UpsertViewAsync(new PersistedView(
+            menu.MessageId,
+            e.ChannelId,
+            e.GuildId!.Value,
+            PersistedViewType.VerificationCompleted,
+            e.AuthorId,
+            tag
+        ));
     }
 
     private static LocalEmbed CreateWelcomeEmbed(string guildName, Snowflake userId, Dictionary<string, string> baseLinkByLevel)

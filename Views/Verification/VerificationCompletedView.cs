@@ -48,6 +48,7 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
         {
             if (guildMember.DiscordId == userId) {
                 ClearComponents();
+                await dbContext.RemoveViewAsync(Menu.MessageId);
 
                 var alreadyVerified = new LocalInteractionMessageResponse()
                     .WithContent($"{Mention.User(userId)} is already verified. We do not do things twice. That is inefficient.")
@@ -59,6 +60,7 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
             if (guildMember.Tags.Contains(tag, StringComparer.CurrentCultureIgnoreCase))
             {
                 ClearComponents();
+                await dbContext.RemoveViewAsync(Menu.MessageId);
 
                 var identityTheft = new LocalInteractionMessageResponse()
                     .WithContent($"Identity theft is not a joke, {e.Interaction.Author.Mention}")
@@ -74,7 +76,8 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
         if (clanMembers == null)
         {
             ClearComponents();
-            
+            await dbContext.RemoveViewAsync(Menu.MessageId);
+
             var clanNotFound = new LocalInteractionMessageResponse()
                 .WithContent($"Clan {settings.ClanTag!} does not exist. I searched. I am thorough. It is not there.")
                 .WithIsEphemeral();
@@ -101,7 +104,9 @@ public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate,
 
         dbContext.Update(settings);
         await dbContext.SaveChangesAsync();
-        
+
+        await dbContext.RemoveViewAsync(Menu.MessageId);
+
         await member.ModifyAsync(props => props.Nick = clanMember.Name);
         
         var guild = bot.GetGuild(guildId);

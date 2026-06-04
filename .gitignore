@@ -8,3 +8,4 @@ riderModule.iml
 appsettings.*.json
 gcp.json
 grafana/activity-dashboard.json
+CLAUDE.md
