@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System.Threading;
+using System.Threading.Tasks;
 using Disqord.Bot.Hosting;
 using Disqord.Extensions.Interactivity.Menus;
 using Disqord.Gateway;
@@ -61,6 +62,15 @@ public class WelcomingService : DiscordBotService
             settings.Password
         );
         var menu = new DefaultTextMenu(welcomeView);
-        await Bot.StartMenuAsync(channel.Id, menu);
+        await Bot.StartMenuAsync(channel.Id, menu, Timeout.InfiniteTimeSpan);
+
+        await context.UpsertViewAsync(new PersistedView(
+            menu.MessageId,
+            channel.Id,
+            guildId,
+            PersistedViewType.Welcome,
+            member.Id,
+            null
+        ));
     }
 }

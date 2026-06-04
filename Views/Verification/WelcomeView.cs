@@ -21,7 +21,7 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
         if (e.AuthorId != userId)
         {
             var notYou = new LocalInteractionMessageResponse()
-                .WithContent($"This button belongs to {Mention.User(userId)}. You are not {Mention.User(userId)}. Hands off.")
+                .WithContent($"{Mention.User(userId)} is only allowed to click this button")
                 .WithIsEphemeral();
             await e.Interaction.Response().SendMessageAsync(notYou);
             return;
@@ -83,7 +83,7 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
         if (verifiedToken?.Status != "ok")
         {
             var response = new LocalInteractionMessageResponse()
-                .WithContent("Verification denied. Either your token expired — they last only a couple of minutes, much like trust — or you handed me the wrong player tag. Try again, and this time, concentrate.")
+                .WithContent("Failed to verify, token expired (they only last a couple minutes) or wrong player tag specified")
                 .WithIsEphemeral();
             await modal.Response().SendMessageAsync(response);
             return;
@@ -92,18 +92,24 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
         if (!passwordResponse!.Value!.Equals(password, StringComparison.InvariantCultureIgnoreCase))
         {
             var response = new LocalInteractionMessageResponse()
-                .WithContent($"Wrong password. Security is my passion, and you have failed it. The correct one is documented {Markdown.Link("here", "https://www.reddit.com/r/RedditClanSystem/wiki/official_reddit_clan_system/")}. Read it.")
+                .WithContent($"Incorrect RCS password, it can be found {Markdown.Link("here", "https://www.reddit.com/r/RedditClanSystem/wiki/official_reddit_clan_system/")}")
                 .WithIsEphemeral();
             await modal.Response().SendMessageAsync(response);
             return;
         }
 
         var completeResponse = new LocalInteractionMessageResponse()
-            .WithContent("Self verification complete. Your paperwork is in order. Now you wait. A co-elder will review your case and decide your fate. Do not rush a co-elder.")
+            .WithContent("Thank you for doing the self verification, wait for a co-eld to accept you")
             .WithIsEphemeral();
         await modal.Response().SendMessageAsync(completeResponse);
 
         ClearComponents();
+
+        await using var scope = bot.Services.CreateAsyncScope();
+        var context = scope.ServiceProvider.GetDwightDbContext();
+
+        // The welcome view is done with; drop it so it is not reattached on restart.
+        await context.RemoveViewAsync(Menu.MessageId);
 
         var player = await apiClient.GetPlayerAsync(verifiedToken!.Tag, CancellationToken.None);
         var tag = verifiedToken.Tag;
@@ -112,7 +118,7 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
         var verifiedEmbed = new LocalEmbed()
             .WithTitle("Self Verification Complete")
             .WithColor(new(0x11f711))
-            .WithDescription($"{modal.Author.Mention} has completed self verification. I have confirmed, personally, that they are the rightful owner of the account {Markdown.Code(tagString)}. The records do not lie.");
+            .WithDescription($"{modal.Author.Mention} has completed self verification, they own the account {Markdown.Code(tagString)}");
 
         await bot.SendMessageAsync(e.ChannelId, new() { Content = $"https://cc.fwafarm.com/cc_n/member.php?tag={tag[1..]}" });
 
@@ -122,16 +128,25 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
             tag
         );
         var menu = new DefaultTextMenu(verificationCompletedView);
-        await bot.StartMenuAsync(e.ChannelId, menu);
+        await bot.StartMenuAsync(e.ChannelId, menu, Timeout.InfiniteTimeSpan);
+
+        await context.UpsertViewAsync(new PersistedView(
+            menu.MessageId,
+            e.ChannelId,
+            e.GuildId!.Value,
+            PersistedViewType.VerificationCompleted,
+            e.AuthorId,
+            tag
+        ));
     }
 
     private static LocalEmbed CreateWelcomeEmbed(string guildName, Snowflake userId, Dictionary<string, string> baseLinkByLevel)
     {
         var description = new StringBuilder()
             .Append(Mention.User(userId))
-            .Append(", welcome to ")
+            .Append(" welcome to ")
             .Append(guildName)
-            .Append(". I am the new Sheriff. Below are the FWA approved bases for every Townhall. These are not suggestions. Use them.\n");
+            .Append("!\nBelow are links to FWA approved bases for all Townhalls.\n");
 
         foreach (var keyValuePair in baseLinkByLevel)
         {
@@ -141,7 +156,7 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
         }
 
         var bigDescription = $"""
-                              Before you set one foot inside, I must establish who you are. Identity theft is rampant. Click the Verify Identity button. It will require your in game API key.
+                              So that we know who you are please click the Verify Identity button, it will require your in game API key
                               * Settings > More Settings > API Token > Show > Copy
                               * And the {Markdown.Link("RCS Password", "https://www.reddit.com/r/RedditClanSystem/wiki/official_reddit_clan_system/")}
                               """;
@@ -151,7 +166,7 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
         return new()
         {
             Color = new(0x11f711),
-            Title = $"Welcome to {guildName}. State Your Business.",
+            Title = $"Welcome to {guildName}!",
             Description = description.ToString()
         };
     }

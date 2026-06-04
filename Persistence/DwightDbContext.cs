@@ -10,7 +10,7 @@ public class DwightDbContext : DbContext
 {
     public DbSet<ClashMember> Members { get; set; } = null!;
     public DbSet<GuildSettings> GuildSettings { get; set; } = null!;
-    public DbSet<ActivitySample> ActivitySamples { get; set; } = null!;
+    public DbSet<PersistedView> PersistedViews { get; set; } = null!;
 
     public DwightDbContext(DbContextOptions<DwightDbContext> options) : base(options)
     {
@@ -49,12 +49,33 @@ public class DwightDbContext : DbContext
             entity.ToTable("guild_settings");
         });
 
-        modelBuilder.Entity<ActivitySample>(entity =>
+        modelBuilder.Entity<PersistedView>(entity =>
         {
-            entity.HasKey(sample => sample.Id);
-            entity.HasIndex(sample => new { sample.PlayerTag, sample.MetricKey, sample.Timestamp });
-            entity.ToTable("activity_samples");
+            entity.HasKey(view => view.MessageId);
+            entity.Property(view => view.Type)
+                .HasConversion(new EnumToNumberConverter<PersistedViewType, int>());
+            entity.ToTable("persisted_views");
         });
+    }
+
+    public async ValueTask UpsertViewAsync(PersistedView view)
+    {
+        var existing = await PersistedViews.FindAsync(view.MessageId);
+        if (existing != null)
+            PersistedViews.Remove(existing);
+
+        await PersistedViews.AddAsync(view);
+        await SaveChangesAsync();
+    }
+
+    public async ValueTask RemoveViewAsync(ulong messageId)
+    {
+        var existing = await PersistedViews.FindAsync(messageId);
+        if (existing == null)
+            return;
+
+        PersistedViews.Remove(existing);
+        await SaveChangesAsync();
     }
 
     public async ValueTask<GuildSettings> GetOrCreateSettingsAsync(ulong guildId)
