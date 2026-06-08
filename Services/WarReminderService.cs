@@ -165,7 +165,7 @@ public class WarReminderService : DiscordBotService
 
                             var message = new LocalMessage
                             {
-                                Content = $"War ends in {endsIn.Hours + 1} hour(s).\n{mentions}\n\nYou have not used your attacks. This is unacceptable. Attack now."
+                                Content = $"War ends in {endsIn.Hours + 1} hour(s).\n{mentions}\n\nYou still have attacks to use. Best not to leave them sitting."
                             };
                             await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
 
@@ -206,7 +206,7 @@ public class WarReminderService : DiscordBotService
 
                             var message = new LocalMessage
                             {
-                                Content = $"War ends soon!\n{mentions}\n\nYou have not used your attacks. Do not let the clan down. Attack now."
+                                Content = $"War ends soon!\n{mentions}\n\nYou still have attacks to use. The clan is counting on you."
                             };
                             await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
 
