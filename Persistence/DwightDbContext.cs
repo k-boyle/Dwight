@@ -12,6 +12,7 @@ public class DwightDbContext : DbContext
     public DbSet<GuildSettings> GuildSettings { get; set; } = null!;
     public DbSet<ActivitySample> ActivitySamples { get; set; } = null!;
     public DbSet<PersistedView> PersistedViews { get; set; } = null!;
+    public DbSet<SeenClanMember> SeenClanMembers { get; set; } = null!;
 
     public DwightDbContext(DbContextOptions<DwightDbContext> options) : base(options)
     {
@@ -63,6 +64,12 @@ public class DwightDbContext : DbContext
             entity.Property(view => view.Type)
                 .HasConversion(new EnumToNumberConverter<PersistedViewType, int>());
             entity.ToTable("persisted_views");
+        });
+
+        modelBuilder.Entity<SeenClanMember>(entity =>
+        {
+            entity.HasKey(member => new { member.GuildId, member.Tag });
+            entity.ToTable("seen_clan_members");
         });
     }
 

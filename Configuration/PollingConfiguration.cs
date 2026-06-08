@@ -14,4 +14,7 @@ public class PollingConfiguration
     public bool ActivityTrackingEnabled { get; set; }
     public TimeSpan ActivityTrackingPollingDuration { get; set; }
     public TimeSpan ActivityRetentionPeriod { get; set; }
+
+    public bool NewMemberTrackingEnabled { get; set; }
+    public TimeSpan NewMemberPollingDuration { get; set; }
 }

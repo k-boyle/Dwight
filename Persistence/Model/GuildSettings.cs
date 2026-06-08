@@ -24,6 +24,9 @@ public class GuildSettings
 
     [MapCommand(typeof(IInteractionChannel))]
     public ulong GeneralChannelId { get; set; }
+
+    [MapCommand(typeof(IInteractionChannel))]
+    public ulong NewMemberChannelId { get; set; }
     
     [MapCommand(typeof(IRole))]
     public ulong ElderRoleId { get; set; }
