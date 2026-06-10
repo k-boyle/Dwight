@@ -97,7 +97,7 @@ public class NewMemberService : DiscordBotService
 
                 Logger.LogInformation("New member {Tag} joined clan {ClanTag}", clanMember.Tag, settings.ClanTag);
 
-                var reply = $"A new face has appeared in the clan. I have already pulled their file.\nhttps://cc.fwafarm.com/cc_n/member.php?tag={clanMember.Tag.TrimStart('#')}";
+                var reply = $"A new face has appeared in the clan: {clanMember.Name}. I have already pulled their file.\nhttps://cc.fwafarm.com/cc_n/member.php?tag={clanMember.Tag.TrimStart('#')}";
                 await Bot.SendMessageAsync(settings.NewMemberChannelId, new() { Content = reply });
             }
         }
