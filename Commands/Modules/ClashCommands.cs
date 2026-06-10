@@ -3,6 +3,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot.Commands.Application;
+using Microsoft.Extensions.Options;
 using Qmmands;
 
 namespace Dwight;
@@ -11,11 +12,13 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 {
     private readonly ClashApiClient _clashApiClient;
     private readonly DwightDbContext _dbContext;
+    private readonly TownhallConfiguration _townhallConfiguration;
 
-    public ClashCommands(ClashApiClient clashApiClient, DwightDbContext dbContext)
+    public ClashCommands(ClashApiClient clashApiClient, DwightDbContext dbContext, IOptions<TownhallConfiguration> townhallConfiguration)
     {
         _clashApiClient = clashApiClient;
         _dbContext = dbContext;
+        _townhallConfiguration = townhallConfiguration.Value;
     }
 
     [SlashCommand("discord-check")]
@@ -91,6 +94,16 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
             Content = response.Length == 0 ? "No one is running alts. An honest clan. How refreshing." : response.ToString()
         };
         return Response(messageResponse);
+    }
+
+    [SlashCommand("base")]
+    [Description("Hands you the regulation base layout for your townhall. Deviation is not tolerated.")]
+    public IResult Base(int townhall)
+    {
+        if (_townhallConfiguration.BaseLinkByLevel.TryGetValue(townhall.ToString(), out var link))
+            return Response($"Townhall {townhall}. Here is the approved layout. Build it exactly. No improvising.\n{link}");
+
+        return Response($"There is no sanctioned base for Townhall {townhall}. I cannot endorse anarchy.");
     }
 
     [SlashCommand("password")]

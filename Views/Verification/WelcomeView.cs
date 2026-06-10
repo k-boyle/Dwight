@@ -156,6 +156,8 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
         }
 
         var bigDescription = $"""
+                              Lose this list? Do not panic, and do not improvise. Run {Markdown.Code("/base")} with your Townhall level and I will hand you the correct layout on demand. I am always watching.
+
                               Before you set one foot inside, I must establish who you are. Identity theft is rampant. Click the Verify Identity button. It will require your in game API key.
                               * Settings > More Settings > API Token > Show > Copy
                               * And the {Markdown.Link("RCS Password", "https://www.reddit.com/r/RedditClanSystem/wiki/official_reddit_clan_system/")}
