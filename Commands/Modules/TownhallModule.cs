@@ -64,7 +64,7 @@ public class TownhallModule : DiscordApplicationGuildModuleBase
 
         var response = new StringBuilder();
         foreach (var townhallBase in bases)
-            response.AppendLine($"TH{townhallBase.Level}: {townhallBase.Link}");
+            response.AppendLine($"TH{townhallBase.Level}: <{townhallBase.Link}>");
 
         return Response(response.ToString());
     }

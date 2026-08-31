@@ -99,7 +99,7 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
     {
         var townhallBase = await _dbContext.TownhallBases.FindAsync(Context.GuildId.RawValue, townhall);
         if (townhallBase != null)
-            return Response($"Townhall {townhall}. Here is the approved layout. Build it exactly. No improvising.\n{townhallBase.Link}");
+            return Response($"Townhall {townhall}. Here is the approved layout. Build it exactly. No improvising.\n<{townhallBase.Link}>");
 
         return Response($"There is no sanctioned base for Townhall {townhall}. I cannot endorse anarchy.");
     }
