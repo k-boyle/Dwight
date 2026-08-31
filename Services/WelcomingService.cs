@@ -6,19 +6,11 @@ using Disqord.Gateway;
 using Disqord.Rest;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Dwight;
 
 public class WelcomingService : DiscordBotService
 {
-    private readonly TownhallConfiguration _townhallConfiguration;
-
-    public WelcomingService(IOptions<TownhallConfiguration> townhallConfiguration)
-    {
-        _townhallConfiguration = townhallConfiguration.Value;
-    }
-
     protected override async ValueTask OnMemberJoined(MemberJoinedEventArgs e)
     {
         await using var scope = Bot.Services.CreateAsyncScope();
@@ -55,9 +47,10 @@ public class WelcomingService : DiscordBotService
         else
             await member.GrantRoleAsync(role.Id);
 
+        var baseLinkByLevel = await context.GetTownhallBaseLinksAsync(guildId);
         var welcomeView = new WelcomeView(
             guild.Name,
-            _townhallConfiguration.BaseLinkByLevel,
+            baseLinkByLevel,
             member.Id,
             settings.Password
         );

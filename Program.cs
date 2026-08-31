@@ -49,7 +49,6 @@ public class Program
                         options => options.UseNpgsql(config.GetConnectionString("Dwight")),
                         optionsLifetime: ServiceLifetime.Singleton
                     )
-                    .Configure<TownhallConfiguration>(context.Configuration.GetSection("Clash"))
                     .Configure<PollingConfiguration>(context.Configuration.GetSection("Polling"))
                     .Configure<ClashConfiguration>(context.Configuration.GetSection("Clash"))
                     .AddClashApiClient()

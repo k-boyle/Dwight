@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -13,6 +15,7 @@ public class DwightDbContext : DbContext
     public DbSet<ActivitySample> ActivitySamples { get; set; } = null!;
     public DbSet<PersistedView> PersistedViews { get; set; } = null!;
     public DbSet<SeenClanMember> SeenClanMembers { get; set; } = null!;
+    public DbSet<TownhallBase> TownhallBases { get; set; } = null!;
 
     public DwightDbContext(DbContextOptions<DwightDbContext> options) : base(options)
     {
@@ -71,6 +74,12 @@ public class DwightDbContext : DbContext
             entity.HasKey(member => new { member.GuildId, member.Tag });
             entity.ToTable("seen_clan_members");
         });
+
+        modelBuilder.Entity<TownhallBase>(entity =>
+        {
+            entity.HasKey(townhallBase => new { townhallBase.GuildId, townhallBase.Level });
+            entity.ToTable("townhall_bases");
+        });
     }
 
     public async ValueTask UpsertViewAsync(PersistedView view)
@@ -113,5 +122,13 @@ public class DwightDbContext : DbContext
         settings = new(guildId);
         await GuildSettings.AddAsync(settings);
         return settings;
+    }
+
+    public async ValueTask<Dictionary<string, string>> GetTownhallBaseLinksAsync(ulong guildId)
+    {
+        return await TownhallBases
+            .Where(townhallBase => townhallBase.GuildId == guildId)
+            .OrderByDescending(townhallBase => townhallBase.Level)
+            .ToDictionaryAsync(townhallBase => townhallBase.Level.ToString(), townhallBase => townhallBase.Link);
     }
 }

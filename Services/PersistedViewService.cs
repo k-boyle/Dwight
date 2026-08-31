@@ -6,19 +6,12 @@ using Disqord.Gateway;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace Dwight;
 
 public class PersistedViewService : DiscordBotService
 {
-    private readonly TownhallConfiguration _townhallConfiguration;
     private int _reattached;
-
-    public PersistedViewService(IOptions<TownhallConfiguration> townhallConfiguration)
-    {
-        _townhallConfiguration = townhallConfiguration.Value;
-    }
 
     protected override async ValueTask OnReady(ReadyEventArgs e)
     {
@@ -62,9 +55,10 @@ public class PersistedViewService : DiscordBotService
                 }
 
                 var guild = Bot.GetGuild(view.GuildId);
+                var baseLinkByLevel = await context.GetTownhallBaseLinksAsync(view.GuildId);
                 reconstructed = new WelcomeView(
                     guild?.Name ?? string.Empty,
-                    _townhallConfiguration.BaseLinkByLevel,
+                    baseLinkByLevel,
                     view.UserId,
                     settings.Password
                 );

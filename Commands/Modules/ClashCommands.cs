@@ -3,7 +3,6 @@ using System.Text;
 using System.Threading.Tasks;
 using Disqord;
 using Disqord.Bot.Commands.Application;
-using Microsoft.Extensions.Options;
 using Qmmands;
 
 namespace Dwight;
@@ -12,13 +11,11 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 {
     private readonly ClashApiClient _clashApiClient;
     private readonly DwightDbContext _dbContext;
-    private readonly TownhallConfiguration _townhallConfiguration;
 
-    public ClashCommands(ClashApiClient clashApiClient, DwightDbContext dbContext, IOptions<TownhallConfiguration> townhallConfiguration)
+    public ClashCommands(ClashApiClient clashApiClient, DwightDbContext dbContext)
     {
         _clashApiClient = clashApiClient;
         _dbContext = dbContext;
-        _townhallConfiguration = townhallConfiguration.Value;
     }
 
     [SlashCommand("discord-check")]
@@ -98,10 +95,11 @@ public class ClashCommands : DiscordApplicationGuildModuleBase
 
     [SlashCommand("base")]
     [Description("Hands you the regulation base layout for your townhall. Deviation is not tolerated.")]
-    public IResult Base(int townhall)
+    public async ValueTask<IResult> Base(int townhall)
     {
-        if (_townhallConfiguration.BaseLinkByLevel.TryGetValue(townhall.ToString(), out var link))
-            return Response($"Townhall {townhall}. Here is the approved layout. Build it exactly. No improvising.\n{link}");
+        var townhallBase = await _dbContext.TownhallBases.FindAsync(Context.GuildId.RawValue, townhall);
+        if (townhallBase != null)
+            return Response($"Townhall {townhall}. Here is the approved layout. Build it exactly. No improvising.\n{townhallBase.Link}");
 
         return Response($"There is no sanctioned base for Townhall {townhall}. I cannot endorse anarchy.");
     }

@@ -6,15 +6,13 @@ using Disqord.Bot.Commands;
 using Disqord.Bot.Commands.Application;
 using Disqord.Gateway;
 using Disqord.Rest;
-using Microsoft.Extensions.Options;
 using Qmmands;
 
 namespace Dwight;
 
 public partial class VerificationModule(
     ClashApiClient clashApiClient,
-    DwightDbContext dbContext,
-    IOptions<TownhallConfiguration> townhallConfiguration)
+    DwightDbContext dbContext)
     : DiscordApplicationGuildModuleBase
 {
     [SlashCommand("verify")]
@@ -123,9 +121,10 @@ public partial class VerificationModule(
         if (settings.Password is null)
             return Response("There is no password configured. Security cannot function without a password. Set one.");
 
+        var baseLinkByLevel = await dbContext.GetTownhallBaseLinksAsync(Context.GuildId.RawValue);
         var view = new WelcomeView(
             Context.Bot.GetGuild(Context.GuildId)!.Name,
-            townhallConfiguration.Value.BaseLinkByLevel,
+            baseLinkByLevel,
             member.Id,
             settings.Password
         );
