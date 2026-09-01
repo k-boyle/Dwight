@@ -14,7 +14,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="Disqord.Bot" Version="1.0.0-alpha5.91" />
+        <PackageReference Include="Disqord.Bot" Version="1.0.0-alpha5.115" />
         <PackageReference Include="HtmlAgilityPack" Version="1.13.0" />
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.11">
             <PrivateAssets>all</PrivateAssets>
