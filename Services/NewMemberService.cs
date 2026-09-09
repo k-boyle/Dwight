@@ -61,13 +61,13 @@ public class NewMemberService : DiscordBotService
         var save = false;
         foreach (var settings in allSettings)
         {
-            if (settings.ClanTag == null)
+            if (!settings.TryGetClanTag(out var clanTag))
                 continue;
 
-            var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag, cancellationToken);
+            var clanMembers = await _clashApiClient.GetClanMembersAsync(clanTag, cancellationToken);
             if (clanMembers == null || clanMembers.Count == 0)
             {
-                Logger.LogDebug("Got no members for clan {ClanTag}", settings.ClanTag);
+                Logger.LogDebug("Got no members for clan {ClanTag}", clanTag);
                 continue;
             }
 
@@ -95,7 +95,7 @@ public class NewMemberService : DiscordBotService
                 if (settings.NewMemberChannelId == 0)
                     continue;
 
-                Logger.LogInformation("New member {Tag} joined clan {ClanTag}", clanMember.Tag, settings.ClanTag);
+                Logger.LogInformation("New member {Tag} joined clan {ClanTag}", clanMember.Tag, clanTag);
 
                 var reply = $"A new face has appeared in the clan: {clanMember.Name}. I have already pulled their file.\nhttps://cc.fwafarm.com/cc_n/member.php?tag={clanMember.Tag.TrimStart('#')}";
                 await Bot.SendMessageAsync(settings.NewMemberChannelId, new() { Content = reply });

@@ -27,7 +27,7 @@ public class PlayerStatsCollector : IActivityCollector
 
     public async Task<IReadOnlyCollection<ActivitySample>> CollectAsync(GuildSettings settings, DateTimeOffset timestamp, CancellationToken cancellationToken)
     {
-        if (settings.ClanTag is not { } clanTag || _metrics.Count == 0)
+        if (!settings.TryGetClanTag(out var clanTag) || _metrics.Count == 0)
             return Array.Empty<ActivitySample>();
 
         // Sample the whole live clan roster, not just members linked to the bot.

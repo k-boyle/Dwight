@@ -52,16 +52,16 @@ public class RoleService : DiscordBotService
         {
             Logger.LogDebug("Checking roles for guild {GuildId}", settings.GuildId);
 
-            if (settings.ClanTag == null)
+            if (!settings.TryGetClanTag(out var clanTag))
             {
                 Logger.LogDebug("Clan tag not set for {GuildId}, skipping", settings.GuildId);
                 continue;
             }
 
-            var clanMembers = await _clashApiClient.GetClanMembersAsync(settings.ClanTag, cancellationToken);
+            var clanMembers = await _clashApiClient.GetClanMembersAsync(clanTag, cancellationToken);
             if (clanMembers == null || clanMembers.Count == 0)
             {
-                Logger.LogDebug("Got no members for clan {ClanTag}", settings.ClanTag);
+                Logger.LogDebug("Got no members for clan {ClanTag}", clanTag);
                 continue;
             }
 

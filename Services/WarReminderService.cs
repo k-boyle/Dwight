@@ -63,8 +63,7 @@ public class WarReminderService : DiscordBotService
         foreach (var settings in allSettings)
         {
             var guildId = settings.GuildId;
-            var clanTag = settings.ClanTag;
-            if (clanTag == null)
+            if (!settings.TryGetClanTag(out var clanTag))
             {
                 Logger.LogInformation("Clan tag not set for {Guild}", guildId);
                 continue;

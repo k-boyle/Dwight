@@ -29,7 +29,7 @@ public class ActivityCollectionService
     /// <summary>Collects and persists samples for a single guild, returning the number written.</summary>
     public async Task<int> CollectAsync(GuildSettings settings, DateTimeOffset timestamp, CancellationToken cancellationToken)
     {
-        if (settings.ClanTag == null)
+        if (!settings.TryGetClanTag(out _))
         {
             _logger.LogDebug("Clan tag not set for {GuildId}, skipping", settings.GuildId);
             return 0;

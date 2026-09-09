@@ -14,7 +14,7 @@ public class RequireClanTagAttribute : DiscordCheckAttribute
         var dbContext = context.Services.GetDwightDbContext();
         var settings = await dbContext.GuildSettings.FindAsync(context.GuildId.Value.RawValue);
         
-        if (settings?.ClanTag == null)
+        if (settings == null || !settings.TryGetClanTag(out _))
             return Results.Failure("Clan tag needs to be set to execute this command");
 
         return Results.Success;
