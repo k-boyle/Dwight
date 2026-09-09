@@ -9,5 +9,14 @@
       "https://www.myget.org/F/disqord/api/v3/index.json"
     ]
   },
-  "automerge": true
+  "automerge": true,
+  "packageRules": [
+    {
+      "description": "Major .NET bumps must be reviewed: the Docker tags, the TargetFramework in Dwight.csproj and the Microsoft.* packages have to move together, and automerging one of them alone breaks the container at startup.",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "automerge": false
+    }
+  ]
 }
