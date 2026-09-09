@@ -1,17 +1,17 @@
-﻿using System;
-using Newtonsoft.Json;
+using System;
+using System.Text.Json.Serialization;
 
 namespace Dwight;
 
 public class ApiFailure : Exception
 {
-    [JsonProperty("reason")]
+    [JsonPropertyName("reason")]
     public string Reason { get; }
 
-    [JsonProperty("message")]
+    [JsonPropertyName("message")]
     public new string Message { get; }
 
-    [JsonProperty("type")]
+    [JsonPropertyName("type")]
     public string Type { get; }
 
     public ApiFailure(string reason, string message, string type)

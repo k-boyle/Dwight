@@ -2,10 +2,10 @@
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 
 namespace Dwight;
 
@@ -24,7 +24,7 @@ public class ClashDevClient
     {
         _logger.LogInformation("Logging into developer API");
 
-        var body = JsonConvert.SerializeObject(login);
+        var body = JsonSerializer.Serialize(login, ClashJsonOptions.Default);
         var bodyContent = new StringContent(body, Encoding.UTF8, "application/json");
 
         using var response = await _httpClient.PostAsync("/api/login", bodyContent, cancellationToken);
@@ -33,7 +33,7 @@ public class ClashDevClient
         if (response.IsSuccessStatusCode)
             return response.Headers.GetValues("Set-Cookie").Single();
 
-        var failure = JsonConvert.DeserializeObject<DevApiFailure>(content)!;
+        var failure = JsonSerializer.Deserialize<DevApiFailure>(content, ClashJsonOptions.Default)!;
         _logger.LogError(failure, "Failed to authenticate with developer API");
         throw failure;
     }
@@ -49,9 +49,9 @@ public class ClashDevClient
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
 
         if (response.IsSuccessStatusCode)
-            return JsonConvert.DeserializeObject<ApiKeys>(content)!;
+            return JsonSerializer.Deserialize<ApiKeys>(content, ClashJsonOptions.Default)!;
 
-        var failure = JsonConvert.DeserializeObject<DevApiFailure>(content)!;
+        var failure = JsonSerializer.Deserialize<DevApiFailure>(content, ClashJsonOptions.Default)!;
         _logger.LogError(failure, "Failed to fetch api keys");
         throw failure;
     }
@@ -71,7 +71,7 @@ public class ClashDevClient
             return;
 
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
-        var failure = JsonConvert.DeserializeObject<DevApiFailure>(content)!;
+        var failure = JsonSerializer.Deserialize<DevApiFailure>(content, ClashJsonOptions.Default)!;
         _logger.LogError(failure, "Failed to revoke api key");
         throw failure;
     }
@@ -102,13 +102,15 @@ public class ClashDevClient
         using var response = await _httpClient.SendAsync(request, cancellationToken);
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
 
-        var responseDefinition = new { key = new { key = "" } };
-
         if (response.IsSuccessStatusCode)
-            return JsonConvert.DeserializeAnonymousType(content, responseDefinition)!.key.key;
-        
-        var failure = JsonConvert.DeserializeObject<DevApiFailure>(content)!;
+            return JsonSerializer.Deserialize<CreateKeyResponse>(content, ClashJsonOptions.Default)!.Key.Key;
+
+        var failure = JsonSerializer.Deserialize<DevApiFailure>(content, ClashJsonOptions.Default)!;
         _logger.LogError(failure, "Failed to create new api key");
         throw failure;
     }
+
+    private record CreateKeyResponse(CreateKeyResponseKey Key);
+
+    private record CreateKeyResponseKey(string Key);
 }

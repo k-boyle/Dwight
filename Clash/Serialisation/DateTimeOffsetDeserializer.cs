@@ -1,17 +1,18 @@
-﻿using System;
+using System;
 using System.Globalization;
-using Newtonsoft.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Dwight;
 
 public class DateTimeOffsetDeserializer : JsonConverter<DateTimeOffset>
 {
-    public override void WriteJson(JsonWriter writer, DateTimeOffset value, JsonSerializer serializer)
-        => throw new NotImplementedException();
-
-    public override DateTimeOffset ReadJson(JsonReader reader, Type objectType, DateTimeOffset existingValue, bool hasExistingValue, JsonSerializer serializer)
+    public override DateTimeOffset Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        return DateTimeOffset.ParseExact((string)reader.Value!, "yyyyMMdd'T'HHmmss.fff'Z'", CultureInfo.InvariantCulture,
+        return DateTimeOffset.ParseExact(reader.GetString()!, "yyyyMMdd'T'HHmmss.fff'Z'", CultureInfo.InvariantCulture,
             DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal);
     }
+
+    public override void Write(Utf8JsonWriter writer, DateTimeOffset value, JsonSerializerOptions options)
+        => throw new NotImplementedException();
 }

@@ -2,11 +2,10 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using JsonSerializer = System.Text.Json.JsonSerializer;
 
 namespace Dwight;
 
@@ -54,9 +53,9 @@ public class ClashApiClient
 
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
         if (response.IsSuccessStatusCode)
-            return JsonConvert.DeserializeObject<T>(content);
+            return JsonSerializer.Deserialize<T>(content, ClashJsonOptions.Default);
 
-        var failure = JsonConvert.DeserializeObject<ApiFailure>(content)!;
+        var failure = JsonSerializer.Deserialize<ApiFailure>(content, ClashJsonOptions.Default)!;
         _logger.LogError(failure, "Error executing {Endpoint} with {Parameter}", endpoint.PathTemplate, endpoint.Parameter);
 
         throw failure;
@@ -65,11 +64,11 @@ public class ClashApiClient
     private async Task<T?> PostAsync<T>(Endpoint<T> endpoint, object body, CancellationToken cancellationToken) where T : class
     {
         _logger.LogInformation("Executing {Endpoint} with {Parameter}", endpoint.PathTemplate, endpoint.Parameter);
-        
+
         var fullPath = endpoint.Format();
 
         using StringContent jsonContent = new(
-            JsonSerializer.Serialize(body),
+            JsonSerializer.Serialize(body, ClashJsonOptions.Default),
             Encoding.UTF8,
             "application/json"
         );
@@ -80,9 +79,9 @@ public class ClashApiClient
 
         var content = await response.Content.ReadAsStringAsync(cancellationToken);
         if (response.IsSuccessStatusCode)
-            return JsonConvert.DeserializeObject<T>(content);
+            return JsonSerializer.Deserialize<T>(content, ClashJsonOptions.Default);
 
-        var failure = JsonConvert.DeserializeObject<ApiFailure>(content)!;
+        var failure = JsonSerializer.Deserialize<ApiFailure>(content, ClashJsonOptions.Default)!;
         _logger.LogError(failure, "Error executing {Endpoint} with {Parameter}", endpoint.PathTemplate, endpoint.Parameter);
 
         throw failure;

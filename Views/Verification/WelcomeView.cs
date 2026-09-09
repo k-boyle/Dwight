@@ -68,13 +68,13 @@ public class WelcomeView(string guildName, Dictionary<string, string> baseLinkBy
             return;
 
         var components = modal.Components;
-        var row1Response = components[0] as IRowComponent;
-        var row2Response = components[1] as IRowComponent;
-        var row3Response = components[2] as IRowComponent;
+        var row1Response = components[0] as IModalRowComponent;
+        var row2Response = components[1] as IModalRowComponent;
+        var row3Response = components[2] as IModalRowComponent;
 
-        var tagResponse = row1Response!.Components[0] as ITextInputComponent;
-        var keyResponse = row2Response!.Components[0] as ITextInputComponent;
-        var passwordResponse = row3Response!.Components[0] as ITextInputComponent;
+        var tagResponse = row1Response!.Components[0] as IModalTextInputComponent;
+        var keyResponse = row2Response!.Components[0] as IModalTextInputComponent;
+        var passwordResponse = row3Response!.Components[0] as IModalTextInputComponent;
 
         var bot = e.Interaction.Client as DiscordBot;
         var apiClient = bot!.Services.GetRequiredService<ClashApiClient>();

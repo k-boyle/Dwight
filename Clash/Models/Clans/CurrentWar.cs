@@ -1,11 +1,11 @@
-﻿using System;
-using Newtonsoft.Json;
+using System;
+using System.Text.Json.Serialization;
 
 namespace Dwight;
 
 public record CurrentWar(
     WarState State,
-    [JsonConverter(typeof(DateTimeOffsetDeserializer))]
+    [property: JsonConverter(typeof(DateTimeOffsetDeserializer))]
     DateTimeOffset EndTime,
     WarClan Clan,
     WarClan Opponent);
