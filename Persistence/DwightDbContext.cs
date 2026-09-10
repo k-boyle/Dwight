@@ -58,6 +58,7 @@ public class DwightDbContext : DbContext
         {
             entity.HasKey(sample => sample.Id);
             entity.HasIndex(sample => new { sample.PlayerTag, sample.MetricKey, sample.Timestamp });
+            entity.HasIndex(sample => sample.Timestamp);
             entity.ToTable("activity_samples");
         });
 

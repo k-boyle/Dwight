@@ -81,11 +81,23 @@ public class ActivityTrackingService : DiscordBotService
 
         _lastRetention = now;
         var cutoff = now - retention;
-        var deleted = await context.ActivitySamples
-            .Where(sample => sample.Timestamp < cutoff)
-            .ExecuteDeleteAsync(cancellationToken);
 
-        if (deleted > 0)
-            Logger.LogInformation("Pruned {Count} activity samples older than {Cutoff}", deleted, cutoff);
+        // Pruning is a background maintenance op with no latency requirement, so give it more
+        // room than the default 30s command timeout before treating a slow delete as a failure.
+        var previousTimeout = context.Database.GetCommandTimeout();
+        context.Database.SetCommandTimeout(TimeSpan.FromMinutes(5));
+        try
+        {
+            var deleted = await context.ActivitySamples
+                .Where(sample => sample.Timestamp < cutoff)
+                .ExecuteDeleteAsync(cancellationToken);
+
+            if (deleted > 0)
+                Logger.LogInformation("Pruned {Count} activity samples older than {Cutoff}", deleted, cutoff);
+        }
+        finally
+        {
+            context.Database.SetCommandTimeout(previousTimeout);
+        }
     }
 }
