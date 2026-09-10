@@ -6,6 +6,7 @@ internal static class FlareSolverrJsonOptions
 {
     public static readonly JsonSerializerOptions Default = new()
     {
-        PropertyNameCaseInsensitive = true
+        PropertyNameCaseInsensitive = true,
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
     };
 }
