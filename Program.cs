@@ -51,7 +51,9 @@ public class Program
                     )
                     .Configure<PollingConfiguration>(context.Configuration.GetSection("Polling"))
                     .Configure<ClashConfiguration>(context.Configuration.GetSection("Clash"))
+                    .Configure<FlareSolverrConfiguration>(context.Configuration.GetSection("FlareSolverr"))
                     .AddClashApiClient()
+                    .AddFwaClients()
                     .AddActivityTracking();
             })
             .Build();

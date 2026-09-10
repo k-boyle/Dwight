@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Disqord;
@@ -19,13 +18,13 @@ public class WarReminderService : DiscordBotService
 {
     private readonly PollingConfiguration _pollingConfiguration;
     private readonly ClashApiClient _clashApiClient;
-    private readonly HttpClient _httpClient;
+    private readonly FwaPointsClient _fwaPointsClient;
 
-    public WarReminderService(IOptions<PollingConfiguration> pollingConfiguration, ClashApiClient clashApiClient, HttpClient httpClient)
+    public WarReminderService(IOptions<PollingConfiguration> pollingConfiguration, ClashApiClient clashApiClient, FwaPointsClient fwaPointsClient)
     {
         _pollingConfiguration = pollingConfiguration.Value;
         _clashApiClient = clashApiClient;
-        _httpClient = httpClient;
+        _fwaPointsClient = fwaPointsClient;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -103,10 +102,13 @@ public class WarReminderService : DiscordBotService
                 {
                     var url = $"https://points.fwafarm.com/clan?tag={clanTag[1..]}";
 
-                    var message = new LocalMessage
-                    {
-                        Content = Markdown.Link("War has been declared! Prepare yourselves. This is not a drill.", url)
-                    };
+                    var content = Markdown.Link("War has been declared! Prepare yourselves. This is not a drill.", url);
+
+                    var prediction = await GetWinPredictionAsync(clanTag[1..], opponentTag[1..], cancellationToken);
+                    if (prediction != null)
+                        content += $"\n{Markdown.Bold(prediction.PredictedWinner)} {prediction.Reason}";
+
+                    var message = new LocalMessage { Content = content };
                     await warChannel.SendMessageAsync(message, cancellationToken: cancellationToken);
                     currentReminder.DeclaredPosted = true;
                     save = true;
@@ -298,6 +300,19 @@ public class WarReminderService : DiscordBotService
     }
 
     private record CurrentWarData(WarState State, DateTimeOffset EndTime, WarClan Clan, WarClan Opponent, bool Cwl);
+
+    private async Task<FwaWinPrediction?> GetWinPredictionAsync(string clanTag, string opponentTag, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _fwaPointsClient.GetWinPredictionAsync(clanTag, opponentTag, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to fetch FWA win prediction for {ClanTag}", clanTag);
+            return null;
+        }
+    }
 
     private static bool Remind(GuildSettings settings, string tag)
     {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Disqord;
 using Disqord.Bot.Hosting;
 using Disqord.Rest;
 using Microsoft.EntityFrameworkCore;
@@ -17,15 +18,20 @@ namespace Dwight;
 /// player Dwight has never seen before turns up. Seen tags are remembered forever, so a member who
 /// leaves and rejoins is not re-announced. On the first observation of a clan the roster is seeded
 /// silently to avoid spamming a link for every existing member.
+///
+/// Each new member's ChocolateClash record is also checked: an outright FWA ban raises an urgent
+/// alarm, while a recent stint in an FWA-blacklisted clan raises a milder heads-up.
 /// </summary>
 public class NewMemberService : DiscordBotService
 {
     private readonly PollingConfiguration _pollingConfiguration;
     private readonly ClashApiClient _clashApiClient;
+    private readonly FwaMemberClient _fwaMemberClient;
 
-    public NewMemberService(IOptions<PollingConfiguration> pollingConfiguration, ClashApiClient clashApiClient)
+    public NewMemberService(IOptions<PollingConfiguration> pollingConfiguration, ClashApiClient clashApiClient, FwaMemberClient fwaMemberClient)
     {
         _clashApiClient = clashApiClient;
+        _fwaMemberClient = fwaMemberClient;
         _pollingConfiguration = pollingConfiguration.Value;
     }
 
@@ -97,12 +103,38 @@ public class NewMemberService : DiscordBotService
 
                 Logger.LogInformation("New member {Tag} joined clan {ClanTag}", clanMember.Tag, clanTag);
 
-                var reply = $"A new face has appeared in the clan: {clanMember.Name}. I have already pulled their file.\nhttps://cc.fwafarm.com/cc_n/member.php?tag={clanMember.Tag.TrimStart('#')}";
+                var bareTag = clanMember.Tag.TrimStart('#');
+                var reply = $"A new face has appeared in the clan: {clanMember.Name}. I have already pulled their file.\nhttps://cc.fwafarm.com/cc_n/member.php?tag={bareTag}";
+
+                var status = await GetFwaStatusAsync(bareTag, cancellationToken);
+                if (status is { IsBanned: true })
+                {
+                    reply += $"\n\n🚨 {Markdown.Bold("THIS ACCOUNT IS FWA BANNED.")} Kick {clanMember.Name} immediately.";
+                }
+                else if (status?.BlacklistedClan is { } blacklistedClan)
+                {
+                    reply += $"\n\nHeads up: their ChocolateClash history shows time in {Markdown.Bold(blacklistedClan.ClanName)} " +
+                        $"(https://cc.fwafarm.com/cc_n/clan.php?tag={blacklistedClan.ClanTag}), which is FWA blacklisted. Might be worth keeping an eye on them.";
+                }
+
                 await Bot.SendMessageAsync(settings.NewMemberChannelId, new() { Content = reply });
             }
         }
 
         if (save)
             await context.SaveChangesAsync(cancellationToken);
+    }
+
+    private async Task<FwaMemberStatus?> GetFwaStatusAsync(string playerTag, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _fwaMemberClient.GetStatusAsync(playerTag, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to fetch FWA member status for {PlayerTag}", playerTag);
+            return null;
+        }
     }
 }
