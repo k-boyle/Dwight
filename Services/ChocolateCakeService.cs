@@ -47,19 +47,19 @@ public class ChocolateCakeService : DiscordBotService
         if (message.ChannelId != settings.WelcomeChannelId) return;
 
         var bareTag = tag[1..];
-        var placeholder = await Bot.SendMessageAsync(message.ChannelId, new() { Content = "Hold on. I am pulling their file." });
+        var placeholder = await Bot.SendMessageAsync(message.ChannelId, new() { Content = "Hold on. I am pulling their file. Do not rush a professional." });
 
         var reply = $"https://cc.fwafarm.com/cc_n/member.php?tag={bareTag}";
 
         var status = await GetFwaStatusAsync(bareTag, CancellationToken.None);
         if (status is { IsBanned: true })
         {
-            reply += $"\n\n🚨 {Markdown.Bold("THIS ACCOUNT IS FWA BANNED.")} Do not verify them.";
+            reply += $"\n\n🚨 {Markdown.Bold("This account is FWA banned.")} Do not verify them. Trust, once broken, is not reissued.";
         }
         else if (status?.BlacklistedClan is { } blacklistedClan)
         {
-            reply += $"\n\nHeads up: their ChocolateClash history shows time in {Markdown.Bold(blacklistedClan.ClanName)} " +
-                $"(https://cc.fwafarm.com/cc_n/clan.php?tag={blacklistedClan.ClanTag}), which is FWA blacklisted. Might be worth keeping an eye on them.";
+            reply += $"\n\nTheir ChocolateClash history shows time in {Markdown.Bold(blacklistedClan.ClanName)} " +
+                $"(https://cc.fwafarm.com/cc_n/clan.php?tag={blacklistedClan.ClanTag}), which is FWA blacklisted. I am not accusing. I am noting. Watch them.";
         }
 
         await Bot.ModifyMessageAsync(message.ChannelId, placeholder.Id, props => props.Content = reply);

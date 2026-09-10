@@ -105,19 +105,19 @@ public class NewMemberService : DiscordBotService
 
                 var bareTag = clanMember.Tag.TrimStart('#');
                 var placeholder = await Bot.SendMessageAsync(settings.NewMemberChannelId,
-                    new() { Content = $"A new face has appeared in the clan: {clanMember.Name}. Give me a moment, I am pulling their file." });
+                    new() { Content = $"A new face has appeared in the clan: {clanMember.Name}. Hold. I am pulling their file. Do not get comfortable." });
 
                 var reply = $"A new face has appeared in the clan: {clanMember.Name}. I have already pulled their file.\nhttps://cc.fwafarm.com/cc_n/member.php?tag={bareTag}";
 
                 var status = await GetFwaStatusAsync(bareTag, cancellationToken);
                 if (status is { IsBanned: true })
                 {
-                    reply += $"\n\n🚨 {Markdown.Bold("THIS ACCOUNT IS FWA BANNED.")} Kick {clanMember.Name} immediately.";
+                    reply += $"\n\n🚨 {Markdown.Bold("This account is FWA banned.")} Kick {clanMember.Name} immediately. Hesitation is how infiltrators survive.";
                 }
                 else if (status?.BlacklistedClan is { } blacklistedClan)
                 {
-                    reply += $"\n\nHeads up: their ChocolateClash history shows time in {Markdown.Bold(blacklistedClan.ClanName)} " +
-                        $"(https://cc.fwafarm.com/cc_n/clan.php?tag={blacklistedClan.ClanTag}), which is FWA blacklisted. Might be worth keeping an eye on them.";
+                    reply += $"\n\nTheir ChocolateClash history shows time in {Markdown.Bold(blacklistedClan.ClanName)} " +
+                        $"(https://cc.fwafarm.com/cc_n/clan.php?tag={blacklistedClan.ClanTag}), which is FWA blacklisted. I am not accusing. I am noting. Watch them.";
                 }
 
                 await Bot.ModifyMessageAsync(settings.NewMemberChannelId, placeholder.Id, props => props.Content = reply, cancellationToken: cancellationToken);
