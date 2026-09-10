@@ -104,6 +104,9 @@ public class NewMemberService : DiscordBotService
                 Logger.LogInformation("New member {Tag} joined clan {ClanTag}", clanMember.Tag, clanTag);
 
                 var bareTag = clanMember.Tag.TrimStart('#');
+                var placeholder = await Bot.SendMessageAsync(settings.NewMemberChannelId,
+                    new() { Content = $"A new face has appeared in the clan: {clanMember.Name}. Give me a moment, I am pulling their file." });
+
                 var reply = $"A new face has appeared in the clan: {clanMember.Name}. I have already pulled their file.\nhttps://cc.fwafarm.com/cc_n/member.php?tag={bareTag}";
 
                 var status = await GetFwaStatusAsync(bareTag, cancellationToken);
@@ -117,7 +120,7 @@ public class NewMemberService : DiscordBotService
                         $"(https://cc.fwafarm.com/cc_n/clan.php?tag={blacklistedClan.ClanTag}), which is FWA blacklisted. Might be worth keeping an eye on them.";
                 }
 
-                await Bot.SendMessageAsync(settings.NewMemberChannelId, new() { Content = reply });
+                await Bot.ModifyMessageAsync(settings.NewMemberChannelId, placeholder.Id, props => props.Content = reply, cancellationToken: cancellationToken);
             }
         }
 

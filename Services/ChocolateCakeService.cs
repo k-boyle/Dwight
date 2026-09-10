@@ -47,6 +47,8 @@ public class ChocolateCakeService : DiscordBotService
         if (message.ChannelId != settings.WelcomeChannelId) return;
 
         var bareTag = tag[1..];
+        var placeholder = await Bot.SendMessageAsync(message.ChannelId, new() { Content = "Hold on. I am pulling their file." });
+
         var reply = $"https://cc.fwafarm.com/cc_n/member.php?tag={bareTag}";
 
         var status = await GetFwaStatusAsync(bareTag, CancellationToken.None);
@@ -60,7 +62,7 @@ public class ChocolateCakeService : DiscordBotService
                 $"(https://cc.fwafarm.com/cc_n/clan.php?tag={blacklistedClan.ClanTag}), which is FWA blacklisted. Might be worth keeping an eye on them.";
         }
 
-        await Bot.SendMessageAsync(message.ChannelId, new() { Content = reply });
+        await Bot.ModifyMessageAsync(message.ChannelId, placeholder.Id, props => props.Content = reply);
     }
 
     private async Task<FwaMemberStatus?> GetFwaStatusAsync(string playerTag, CancellationToken cancellationToken)
