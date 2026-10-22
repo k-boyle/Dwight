@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Dwight;
 
 public class VerificationCompletedView(Action<LocalMessageBase> messageTemplate, Snowflake userId, string tag) 
-    : ViewBase(messageTemplate)
+    : PersistentViewBase(messageTemplate)
 {
     [Button(Emoji = "⚔️", Label = "Accept")]
     public async ValueTask AcceptButtonAsync(ButtonEventArgs e)

@@ -13,7 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Dwight;
 
 public class WelcomeView(string guildName, Dictionary<string, string> baseLinkByLevel, Snowflake userId, string password)
-    : ViewBase(message => message.WithContent(Mention.User(userId)).WithEmbeds(CreateWelcomeEmbed(guildName, userId, baseLinkByLevel)))
+    : PersistentViewBase(message => message.WithContent(Mention.User(userId)).WithEmbeds(CreateWelcomeEmbed(guildName, userId, baseLinkByLevel)))
 {
     [Button(Emoji = "🕵️", Label = "Verify Identity")]
     public async ValueTask VerifyButtonAsync(ButtonEventArgs e)
