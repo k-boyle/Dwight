@@ -16,6 +16,8 @@ namespace Dwight;
 
 public class WarReminderService : DiscordBotService
 {
+    private static readonly TimeSpan WinPredictionGracePeriod = TimeSpan.FromHours(1);
+
     private readonly PollingConfiguration _pollingConfiguration;
     private readonly ClashApiClient _clashApiClient;
     private readonly FwaPointsClient _fwaPointsClient;
@@ -100,11 +102,19 @@ public class WarReminderService : DiscordBotService
             {
                 case WarState.Preparation when !currentReminder.DeclaredPosted:
                 {
+                    // The FWA points page usually takes a few minutes to sync to a new war, so hold the declaration
+                    // until it can say who should win, rather than posting straight away without it.
+                    var prediction = await GetWinPredictionAsync(clanTag[1..], opponentTag[1..], cancellationToken);
+                    if (prediction == null && DateTimeOffset.UtcNow - currentWar.PreparationStartTime < WinPredictionGracePeriod)
+                    {
+                        Logger.LogInformation("Holding war declaration for {ClanTag} until a win prediction is available", clanTag);
+                        continue;
+                    }
+
                     var url = $"https://points.fwafarm.com/clan?tag={clanTag[1..]}";
 
                     var content = Markdown.Link("War has been declared! Prepare yourselves. This is not a drill.", url);
 
-                    var prediction = await GetWinPredictionAsync(clanTag[1..], opponentTag[1..], cancellationToken);
                     if (prediction != null)
                         content += $"\n{Markdown.Bold(prediction.PredictedWinner)} {prediction.Reason}";
 
@@ -234,7 +244,7 @@ public class WarReminderService : DiscordBotService
         var clanTag = settings.ClanTag!;
         var currentWar = await _clashApiClient.GetCurrentWarAsync(clanTag!, cancellationToken);
         if (currentWar is { State: WarState.InWar or WarState.Preparation })
-            return new(currentWar.State, currentWar.EndTime, currentWar.Clan, currentWar.Opponent, false);
+            return new(currentWar.State, currentWar.PreparationStartTime, currentWar.EndTime, currentWar.Clan, currentWar.Opponent, false);
 
         Logger.LogInformation("{ClanTag} is not currently in a normal war, checking for CWL", clanTag);
 
@@ -291,15 +301,15 @@ public class WarReminderService : DiscordBotService
     {
         // thanks clash api
         if (currentWar.Clan.Tag == clanTag)
-            return new(currentWar.State, currentWar.EndTime, currentWar.Clan, currentWar.Opponent, true);
+            return new(currentWar.State, currentWar.PreparationStartTime, currentWar.EndTime, currentWar.Clan, currentWar.Opponent, true);
 
         if (currentWar.Opponent.Tag == clanTag)
-            return new(currentWar.State, currentWar.EndTime, currentWar.Opponent, currentWar.Clan, true);
+            return new(currentWar.State, currentWar.PreparationStartTime, currentWar.EndTime, currentWar.Opponent, currentWar.Clan, true);
 
         return null;
     }
 
-    private record CurrentWarData(WarState State, DateTimeOffset EndTime, WarClan Clan, WarClan Opponent, bool Cwl);
+    private record CurrentWarData(WarState State, DateTimeOffset PreparationStartTime, DateTimeOffset EndTime, WarClan Clan, WarClan Opponent, bool Cwl);
 
     private async Task<FwaWinPrediction?> GetWinPredictionAsync(string clanTag, string opponentTag, CancellationToken cancellationToken)
     {
